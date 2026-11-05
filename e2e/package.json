@@ -1,0 +1,22 @@
+{
+  "name": "e2e",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@playwright/test": "^1.64.1",
+    "@testcontainers/postgresql": "catalog:",
+    "@types/node": "catalog:",
+    "server": "workspace:*",
+    "testcontainers": "catalog:",
+    "typescript": "catalog:",
+    "web": "workspace:*"
+  }
+}

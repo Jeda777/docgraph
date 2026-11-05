@@ -1,0 +1,252 @@
+{
+  "type": "BUSINESS_PROCESS",
+  "nodes": [
+    {
+      "id": "pool-order",
+      "type": "businessProcessParticipantNode",
+      "position": { "x": 40, "y": 40 },
+      "style": { "width": 520, "height": 300 },
+      "data": {
+        "kind": "participant",
+        "text": "Order process",
+        "participantType": "pool",
+        "orientation": "horizontal",
+        "blackBox": false
+      }
+    },
+    {
+      "id": "pool-payment",
+      "type": "businessProcessParticipantNode",
+      "position": { "x": 40, "y": 400 },
+      "style": { "width": 520, "height": 180 },
+      "data": {
+        "kind": "participant",
+        "text": "Payment provider",
+        "participantType": "pool",
+        "orientation": "horizontal",
+        "blackBox": true
+      }
+    },
+    {
+      "id": "lane-sales",
+      "type": "businessProcessParticipantNode",
+      "parentId": "pool-order",
+      "extent": "parent",
+      "position": { "x": 42, "y": 42 },
+      "style": { "width": 470, "height": 220 },
+      "data": {
+        "kind": "participant",
+        "text": "Sales",
+        "participantType": "lane",
+        "orientation": "horizontal",
+        "blackBox": false
+      }
+    },
+    {
+      "id": "start-order",
+      "type": "businessProcessEventNode",
+      "parentId": "lane-sales",
+      "extent": "parent",
+      "position": { "x": 70, "y": 80 },
+      "style": { "width": 72, "height": 72 },
+      "data": {
+        "kind": "event",
+        "text": "Order received",
+        "context": "start",
+        "eventType": "message",
+        "interrupting": true,
+        "messageRef": "order-message"
+      }
+    },
+    {
+      "id": "validate-order",
+      "type": "businessProcessActivityNode",
+      "parentId": "lane-sales",
+      "extent": "parent",
+      "position": { "x": 180, "y": 76 },
+      "style": { "width": 160, "height": 80 },
+      "data": {
+        "kind": "activity",
+        "text": "Validate order",
+        "taskType": "serviceTask",
+        "markers": []
+      }
+    },
+    {
+      "id": "decision-order",
+      "type": "businessProcessGatewayNode",
+      "parentId": "lane-sales",
+      "extent": "parent",
+      "position": { "x": 380, "y": 80 },
+      "style": { "width": 72, "height": 72 },
+      "data": {
+        "kind": "gateway",
+        "text": "Approved?",
+        "gatewayType": "exclusive",
+        "direction": "diverging"
+      }
+    },
+    {
+      "id": "end-order",
+      "type": "businessProcessEventNode",
+      "parentId": "lane-sales",
+      "extent": "parent",
+      "position": { "x": 380, "y": 170 },
+      "style": { "width": 72, "height": 72 },
+      "data": { "kind": "event", "text": "Completed", "context": "end", "eventType": "none" }
+    },
+    {
+      "id": "boundary-timeout",
+      "type": "businessProcessEventNode",
+      "parentId": "lane-sales",
+      "extent": "parent",
+      "position": { "x": 250, "y": 130 },
+      "style": { "width": 56, "height": 56 },
+      "data": {
+        "kind": "event",
+        "text": "Timeout",
+        "context": "boundary",
+        "eventType": "timer",
+        "interrupting": false,
+        "attachedToId": "validate-order",
+        "timerDefinition": "PT24H"
+      }
+    },
+    {
+      "id": "order-data",
+      "type": "businessProcessDataNode",
+      "position": { "x": 700, "y": 90 },
+      "style": { "width": 120, "height": 72 },
+      "data": {
+        "kind": "data",
+        "text": "Order data",
+        "dataType": "object",
+        "collection": false,
+        "state": "validated",
+        "itemDefinitionRef": "order-item"
+      }
+    },
+    {
+      "id": "order-note",
+      "type": "businessProcessArtifactNode",
+      "position": { "x": 700, "y": 220 },
+      "style": { "width": 180, "height": 96 },
+      "data": {
+        "kind": "artifact",
+        "text": "Orders require payment",
+        "artifactType": "textAnnotation"
+      }
+    },
+    {
+      "id": "choreography-payment",
+      "type": "businessProcessChoreographyNode",
+      "position": { "x": 40, "y": 650 },
+      "style": { "width": 220, "height": 100 },
+      "data": {
+        "kind": "choreography",
+        "text": "Request payment",
+        "choreographyType": "task",
+        "initiatingParticipant": "pool-order",
+        "participantRefs": ["pool-order", "pool-payment"],
+        "messageRefs": ["payment-message"]
+      }
+    },
+    {
+      "id": "conversation-payment",
+      "type": "businessProcessConversationNode",
+      "position": { "x": 330, "y": 650 },
+      "style": { "width": 220, "height": 100 },
+      "data": {
+        "kind": "conversation",
+        "text": "Payment conversation",
+        "conversationType": "conversation",
+        "participantRefs": ["pool-order", "pool-payment"],
+        "correlationKeys": ["orderId"]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sequence-start",
+      "source": "start-order",
+      "sourceHandle": "right",
+      "target": "validate-order",
+      "targetHandle": "left",
+      "type": "businessProcessSequenceFlowEdge",
+      "data": { "kind": "sequenceFlow", "text": "new", "isDefault": false }
+    },
+    {
+      "id": "sequence-validate",
+      "source": "validate-order",
+      "sourceHandle": "right",
+      "target": "decision-order",
+      "targetHandle": "left",
+      "type": "businessProcessSequenceFlowEdge",
+      "data": { "kind": "sequenceFlow", "text": "valid", "isDefault": false, "condition": "valid" }
+    },
+    {
+      "id": "sequence-end",
+      "source": "decision-order",
+      "sourceHandle": "bottom",
+      "target": "end-order",
+      "targetHandle": "top",
+      "type": "businessProcessSequenceFlowEdge",
+      "data": { "kind": "sequenceFlow", "text": "yes", "isDefault": true }
+    },
+    {
+      "id": "message-payment",
+      "source": "pool-order",
+      "sourceHandle": "bottom",
+      "target": "pool-payment",
+      "targetHandle": "top",
+      "type": "businessProcessMessageFlowEdge",
+      "data": {
+        "kind": "messageFlow",
+        "text": "payment request",
+        "initiating": true,
+        "messageRef": "payment-message"
+      }
+    },
+    {
+      "id": "association-note",
+      "source": "order-note",
+      "sourceHandle": "left",
+      "target": "validate-order",
+      "targetHandle": "right",
+      "type": "businessProcessAssociationEdge",
+      "data": { "kind": "association", "text": "", "direction": "oneWay" }
+    },
+    {
+      "id": "data-order",
+      "source": "order-data",
+      "sourceHandle": "left",
+      "target": "validate-order",
+      "targetHandle": "right",
+      "type": "businessProcessDataAssociationEdge",
+      "data": {
+        "kind": "dataAssociation",
+        "text": "input",
+        "direction": "input",
+        "itemRef": "order-item"
+      }
+    },
+    {
+      "id": "conversation-link",
+      "source": "conversation-payment",
+      "sourceHandle": "left",
+      "target": "choreography-payment",
+      "targetHandle": "right",
+      "type": "businessProcessConversationLinkEdge",
+      "data": { "kind": "conversationLink", "text": "related" }
+    }
+  ],
+  "areas": [
+    {
+      "id": "area-collaboration",
+      "type": "areaNode",
+      "position": { "x": 0, "y": 0 },
+      "style": { "width": 920, "height": 820 },
+      "data": { "name": "Order collaboration", "color": "#2563eb", "alpha": 0.08, "order": 0 }
+    }
+  ]
+}

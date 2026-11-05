@@ -1,0 +1,74 @@
+{
+  "type": "DOCUMENT",
+  "document": {
+    "type": "doc",
+    "content": [
+      {
+        "type": "heading",
+        "attrs": { "level": 1 },
+        "content": [{ "type": "text", "text": "System overview" }]
+      },
+      {
+        "type": "paragraph",
+        "content": [
+          { "type": "text", "marks": [{ "type": "bold" }], "text": "DocGraph" },
+          { "type": "text", "text": " keeps documentation next to the diagrams." }
+        ]
+      },
+      {
+        "type": "bulletList",
+        "content": [
+          {
+            "content": [
+              {
+                "content": [
+                  {
+                    "content": [{ "text": "Collaborative editing", "type": "text" }],
+                    "type": "paragraph"
+                  }
+                ],
+                "type": "listItem"
+              },
+              {
+                "content": [
+                  {
+                    "content": [
+                      {
+                        "content": [
+                          {
+                            "content": [
+                              {
+                                "marks": [{ "type": "code" }],
+                                "text": "applyUpdate",
+                                "type": "text"
+                              }
+                            ],
+                            "type": "paragraph"
+                          }
+                        ],
+                        "type": "blockquote"
+                      }
+                    ],
+                    "type": "listItem"
+                  }
+                ],
+                "type": "bulletList"
+              }
+            ],
+            "type": "listItem"
+          }
+        ]
+      },
+      { "type": "horizontalRule" },
+      {
+        "content": [
+          {
+            "content": [{ "text": "Keep it short.", "type": "text" }],
+            "type": "paragraph"
+          }
+        ],
+        "type": "blockquote"
+      }
+    ]
+  }
+}

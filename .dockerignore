@@ -1,0 +1,20 @@
+# dependencies
+**/node_modules/
+
+# builds (rebuilt inside the image)
+**/dist/
+**/.turbo/
+
+# git / ide
+.git/
+.vscode/
+
+# docker
+**/.env*
+
+# not needed by the build; keeps doc and CI changes from busting the `COPY . .` cache
+e2e/
+docs/
+.github/
+.claude/
+**/*.md

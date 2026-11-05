@@ -1,0 +1,81 @@
+name: PR
+
+on:
+  pull_request:
+    branches:
+      - main
+  # Runs on main only to fill the turbo cache: PR runs can restore caches saved on the base
+  # branch, so unchanged packages replay their build and test results instead of rerunning.
+  push:
+    branches:
+      - main
+  # Called by release.yml, so a release only publishes a commit that passes the same checks.
+  workflow_call:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Check & Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache turbo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: .turbo
+          key: turbo-${{ runner.os }}-${{ github.sha }}
+          restore-keys: turbo-${{ runner.os }}-
+
+      - name: Biome check
+        run: pnpm check
+
+      # The browser download is the slow part of the E2E setup; skip it when turbo will replay
+      # the suite from the cache anyway.
+      - name: Check E2E cache
+        id: e2e-cache
+        run: |
+          status=$(pnpm exec turbo run test:e2e --filter=e2e --dry=json \
+            | jq -r '.tasks[] | select(.taskId == "e2e#test:e2e") | .cache.status')
+          echo "E2E cache: $status"
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+
+      - name: Install Playwright browser
+        if: steps.e2e-cache.outputs.status != 'HIT'
+        run: pnpm --filter e2e exec playwright install --with-deps chromium
+
+      # Turbo runs the unit tests (server: PostgreSQL in Testcontainers) and the E2E suite
+      # (Testcontainers: PostgreSQL + Mailpit) in parallel once their builds are done; tasks
+      # whose inputs did not change hit the cache.
+      - name: Build & Test
+        run: pnpm exec turbo run build test test:e2e --log-order=grouped
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7

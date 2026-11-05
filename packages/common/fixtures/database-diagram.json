@@ -1,0 +1,103 @@
+{
+  "type": "DATABASE_DIAGRAM",
+  "nodes": [
+    {
+      "id": "table-orders",
+      "type": "databaseNode",
+      "position": { "x": 80, "y": 60 },
+      "measured": { "width": 240, "height": 220 },
+      "data": {
+        "name": "orders",
+        "color": "blue",
+        "description": "Customer orders",
+        "values": [
+          {
+            "id": "col-id",
+            "name": "id",
+            "value": "uuid",
+            "primaryKey": true,
+            "foreignKey": false,
+            "index": true,
+            "unique": true,
+            "unsigned": true,
+            "nullable": false,
+            "description": "Order identifier"
+          },
+          {
+            "id": "col-customer",
+            "name": "customer_id",
+            "value": "bigint(20)",
+            "primaryKey": false,
+            "foreignKey": true,
+            "index": false,
+            "unique": false,
+            "nullable": true
+          }
+        ],
+        "constraints": [
+          { "id": "cst-1", "type": "unique", "columns": ["col-id", "col-customer"] },
+          { "id": "cst-2", "type": "index", "columns": ["col-customer"] }
+        ]
+      }
+    },
+    {
+      "id": "table-customers",
+      "type": "databaseNode",
+      "position": { "x": 480, "y": 60 },
+      "data": {
+        "name": "customers",
+        "color": "emerald",
+        "values": [
+          {
+            "id": "col-cust-id",
+            "name": "id",
+            "value": "bigint",
+            "primaryKey": true,
+            "foreignKey": false,
+            "index": false,
+            "unique": false,
+            "nullable": false
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "rel-1",
+      "type": "databaseEdge",
+      "source": "table-customers",
+      "sourceHandle": "col-cust-id-b",
+      "target": "table-orders",
+      "targetHandle": "col-customer-a",
+      "data": {
+        "relation": "one-to-many",
+        "nullable": true,
+        "onDelete": "SET NULL",
+        "onUpdate": "CASCADE"
+      }
+    },
+    {
+      "id": "rel-2",
+      "type": "databaseEdge",
+      "source": "table-orders",
+      "sourceHandle": "col-id-a",
+      "target": "table-customers",
+      "targetHandle": "col-cust-id-b",
+      "data": {
+        "relation": "many-to-many",
+        "nullable": false,
+        "onDelete": "NO ACTION",
+        "onUpdate": "NO ACTION"
+      }
+    }
+  ],
+  "areas": [
+    {
+      "id": "area-1",
+      "type": "areaNode",
+      "position": { "x": 20, "y": 20 },
+      "data": { "name": "Sales module", "color": "#10b981", "alpha": 0.15, "order": 0 }
+    }
+  ]
+}

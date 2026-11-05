@@ -1,0 +1,68 @@
+packages:
+  - 'packages/*'
+  - 'apps/*'
+  - 'e2e'
+
+# runtime / package manager
+nodeVersion: 26.13.0
+engineStrict: true
+pmOnFail: download
+
+# supply chain
+minimumReleaseAge: 1440
+trustPolicy: no-downgrade
+trustPolicyExclude:
+  - semver@6.3.1
+  - chokidar@4.0.3
+blockExoticSubdeps: true
+
+allowBuilds:
+  argon2: true
+  esbuild: true
+  lefthook: true
+  # optional native addons of dockerode (testcontainers); the pure JS fallbacks are enough
+  cpu-features: false
+  protobufjs: false
+  ssh2: false
+
+catalog:
+  # general
+  typescript: ^7.0.2
+  zod: ^4.6.7
+  tsx: ^4.23.15
+  "@types/node": ^26.6.6
+  better-auth: ^1.7.15
+  "@better-auth/api-key": ^1.7.15
+  "@better-auth/drizzle-adapter": ^1.7.15
+  "@modelcontextprotocol/sdk": ^1.32.2
+  # documents
+  "@hocuspocus/extension-database": 4.8.0
+  "@hocuspocus/server": 4.8.0
+  "@hocuspocus/provider": 4.8.0
+  "@hocuspocus/provider-react": 4.8.0
+  yjs: ^13.6.33
+  #tiptap
+  "@tiptap/core": 3.32.2
+  "@tiptap/extension-collaboration": 3.32.2
+  "@tiptap/extension-collaboration-caret": 3.32.2
+  "@tiptap/extension-drag-handle": 3.32.2
+  "@tiptap/extension-drag-handle-react": 3.32.2
+  "@tiptap/extension-node-range": 3.32.2
+  "@tiptap/extension-placeholder": 3.32.2
+  "@tiptap/markdown": 3.32.2
+  "@tiptap/pm": 3.32.2
+  "@tiptap/react": 3.32.2
+  "@tiptap/starter-kit": 3.32.2
+  "@tiptap/suggestion": 3.32.2
+  "@tiptap/y-tiptap": 3.0.12
+  # react
+  react: ^19.3.1
+  react-dom: ^19.3.1
+  "@types/react": ^19.3.0
+  "@types/react-dom": ^19.3.0
+  react-email: ^6.11.6
+  "@react-email/ui": ^6.11.6
+  #other
+  vitest: ^5.1.0
+  testcontainers: ^12.2.1
+  "@testcontainers/postgresql": ^12.2.1

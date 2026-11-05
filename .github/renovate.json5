@@ -1,0 +1,65 @@
+{
+  $schema: 'https://docs.renovatebot.com/renovate-schema.json',
+  extends: ['config:recommended', 'schedule:weekly', 'helpers:pinGitHubActionDigests'],
+  // The default also skips `test` folders, where the Testcontainers setup lives.
+  ignorePaths: ['**/node_modules/**'],
+  // Longer than pnpm's `minimumReleaseAge` (1 day), so pnpm can install every proposed version.
+  minimumReleaseAge: '3 days',
+  rangeStrategy: 'bump',
+  postUpdateOptions: ['pnpmDedupe'],
+  lockFileMaintenance: { enabled: true, commitMessageAction: 'refresh lock file' },
+  // Commits: `chore: update …`. PR titles add the icon from CONTRIBUTING.md: `🐢 chore: update …`.
+  // `prTitle` is deprecated, but it is the only way to make them differ.
+  semanticCommits: 'disabled',
+  commitMessagePrefix: 'chore:',
+  commitMessageAction: 'update',
+  prTitle: '🐢 {{{commitMessage}}}',
+  labels: ['chore'],
+  // `config:recommended` already groups monorepos (tiptap, react, better-auth, ...). Node and
+  // Postgres need no group either: each file pins them under the same name, so they share a PR.
+  packageRules: [
+    {
+      groupName: 'drizzle',
+      matchPackageNames: ['drizzle-orm', 'drizzle-kit'],
+      // Skips feature-branch builds like `1.0.0-rc.5-ab785fc`, which semver ranks above `1.0.0-rc.5`.
+      allowedVersions: '!/-[0-9a-f]{7}$/',
+    },
+    {
+      groupName: 'github actions',
+      matchManagers: ['github-actions'],
+      matchUpdateTypes: ['minor', 'patch', 'digest'],
+    },
+    // A new PostgreSQL major can't read the old data directory: it needs a dump and restore.
+    {
+      matchDatasources: ['docker'],
+      matchPackageNames: ['postgres'],
+      matchUpdateTypes: ['major'],
+      enabled: false,
+    },
+  ],
+  // Versions outside package files: pnpm's `nodeVersion`, Corepack in the Dockerfile and the
+  // images Testcontainers starts in the test setups.
+  customManagers: [
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/^pnpm-workspace\\.yaml$/'],
+      matchStrings: ['nodeVersion: (?<currentValue>\\S+)'],
+      depNameTemplate: 'node',
+      datasourceTemplate: 'node-version',
+      versioningTemplate: 'node',
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)Dockerfile$/'],
+      matchStrings: ['corepack@(?<currentValue>\\d+\\.\\d+\\.\\d+)'],
+      depNameTemplate: 'corepack',
+      datasourceTemplate: 'npm',
+    },
+    {
+      customType: 'regex',
+      managerFilePatterns: ['/(^|/)global-setup\\.ts$/'],
+      matchStrings: ["Container\\('(?<depName>[^':]+):(?<currentValue>[^']+)'\\)"],
+      datasourceTemplate: 'docker',
+    },
+  ],
+}

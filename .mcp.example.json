@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "docgraph": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "x-api-key": "${DOCGRAPH_API_KEY}"
+      }
+    }
+  }
+}

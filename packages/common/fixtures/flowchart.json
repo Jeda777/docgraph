@@ -1,0 +1,272 @@
+{
+  "type": "FLOWCHART",
+  "nodes": [
+    {
+      "id": "flow-process",
+      "type": "flowchartProcessNode",
+      "position": { "x": 40, "y": 40 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Validate request" }
+    },
+    {
+      "id": "flow-decision",
+      "type": "flowchartDecisionNode",
+      "position": { "x": 280, "y": 40 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Is it valid?" }
+    },
+    {
+      "id": "flow-document",
+      "type": "flowchartDocumentNode",
+      "position": { "x": 520, "y": 40 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Request\nrecord" }
+    },
+    {
+      "id": "flow-multiple-documents",
+      "type": "flowchartMultipleDocumentsNode",
+      "position": { "x": 760, "y": 40 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Input and output\ncopies" }
+    },
+    {
+      "id": "flow-start-oval",
+      "type": "flowchartStartOvalNode",
+      "position": { "x": 1000, "y": 40 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Begin" }
+    },
+    {
+      "id": "flow-start-circle",
+      "type": "flowchartStartCircleNode",
+      "position": { "x": 40, "y": 180 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "" }
+    },
+    {
+      "id": "flow-terminator",
+      "type": "flowchartTerminatorNode",
+      "position": { "x": 280, "y": 180 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Finish" }
+    },
+    {
+      "id": "flow-preparation",
+      "type": "flowchartPreparationNode",
+      "position": { "x": 520, "y": 180 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Prepare context" }
+    },
+    {
+      "id": "flow-delay",
+      "type": "flowchartDelayNode",
+      "position": { "x": 760, "y": 180 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Wait" }
+    },
+    {
+      "id": "flow-summing-junction",
+      "type": "flowchartSummingJunctionNode",
+      "position": { "x": 1000, "y": 180 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Total" }
+    },
+    {
+      "id": "flow-or-junction",
+      "type": "flowchartOrJunctionNode",
+      "position": { "x": 40, "y": 320 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Any branch" }
+    },
+    {
+      "id": "flow-loop-limit",
+      "type": "flowchartLoopLimitNode",
+      "position": { "x": 280, "y": 320 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Repeat until done" }
+    },
+    {
+      "id": "flow-data",
+      "type": "flowchartDataNode",
+      "position": { "x": 520, "y": 320 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Incoming data" }
+    },
+    {
+      "id": "flow-database",
+      "type": "flowchartDatabaseNode",
+      "position": { "x": 760, "y": 320 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Records" }
+    },
+    {
+      "id": "flow-stored-data",
+      "type": "flowchartStoredDataNode",
+      "position": { "x": 1000, "y": 320 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Cached values" }
+    },
+    {
+      "id": "flow-internal-storage",
+      "type": "flowchartInternalStorageNode",
+      "position": { "x": 40, "y": 460 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Session store" }
+    },
+    {
+      "id": "flow-direct-data",
+      "type": "flowchartDirectDataNode",
+      "position": { "x": 280, "y": 460 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "File data" }
+    },
+    {
+      "id": "flow-sequential-data",
+      "type": "flowchartSequentialDataNode",
+      "position": { "x": 520, "y": 460 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Queued data" }
+    },
+    {
+      "id": "flow-card",
+      "type": "flowchartCardNode",
+      "position": { "x": 760, "y": 460 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Card input" }
+    },
+    {
+      "id": "flow-paper-tape",
+      "type": "flowchartPaperTapeNode",
+      "position": { "x": 1000, "y": 460 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Tape" }
+    },
+    {
+      "id": "flow-display",
+      "type": "flowchartDisplayNode",
+      "position": { "x": 40, "y": 600 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Display result" }
+    },
+    {
+      "id": "flow-manual-input",
+      "type": "flowchartManualInputNode",
+      "position": { "x": 280, "y": 600 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Operator input" }
+    },
+    {
+      "id": "flow-manual-operation",
+      "type": "flowchartManualOperationNode",
+      "position": { "x": 520, "y": 600 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Manual review" }
+    },
+    {
+      "id": "flow-merge-storage",
+      "type": "flowchartMergeOrStorageNode",
+      "position": { "x": 760, "y": 600 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Merge results" }
+    },
+    {
+      "id": "flow-extract-measurement",
+      "type": "flowchartExtractOrMeasurementNode",
+      "position": { "x": 1000, "y": 600 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Extract metric" }
+    },
+    {
+      "id": "flow-collate",
+      "type": "flowchartCollateNode",
+      "position": { "x": 40, "y": 740 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Collate pages" }
+    },
+    {
+      "id": "flow-sort",
+      "type": "flowchartSortNode",
+      "position": { "x": 280, "y": 740 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Sort records" }
+    },
+    {
+      "id": "flow-on-page-reference",
+      "type": "flowchartOnPageReferenceNode",
+      "position": { "x": 520, "y": 740 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "A" }
+    },
+    {
+      "id": "flow-off-page-reference",
+      "type": "flowchartOffPageReferenceNode",
+      "position": { "x": 760, "y": 740 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "B" }
+    },
+    {
+      "id": "flow-predefined-process",
+      "type": "flowchartPredefinedProcessNode",
+      "position": { "x": 1000, "y": 740 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Run subroutine" }
+    },
+    {
+      "id": "flow-parallel-mode",
+      "type": "flowchartParallelModeNode",
+      "position": { "x": 40, "y": 880 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Run in parallel" }
+    },
+    {
+      "id": "flow-transfer",
+      "type": "flowchartTransferNode",
+      "position": { "x": 280, "y": 880 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Transfer" }
+    },
+    {
+      "id": "flow-annotation-bracket",
+      "type": "flowchartAnnotationBracketNode",
+      "position": { "x": 520, "y": 880 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "Note" }
+    },
+    {
+      "id": "flow-annotation-callout",
+      "type": "flowchartAnnotationCalloutNode",
+      "position": { "x": 760, "y": 880 },
+      "measured": { "width": 180, "height": 72 },
+      "data": { "text": "" }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-edge-yes",
+      "type": "flowchartFlowLineEdge",
+      "source": "flow-decision",
+      "sourceHandle": "bottom",
+      "target": "flow-process",
+      "targetHandle": "top",
+      "data": { "text": "Yes" }
+    },
+    {
+      "id": "flow-edge-bidirectional",
+      "type": "flowchartBidirectionalFlowLineEdge",
+      "source": "flow-process",
+      "sourceHandle": "right",
+      "target": "flow-decision",
+      "targetHandle": "left",
+      "data": { "text": "" }
+    }
+  ],
+  "areas": [
+    {
+      "id": "flow-area-main",
+      "type": "areaNode",
+      "position": { "x": 20, "y": 20 },
+      "measured": { "width": 1240, "height": 980 },
+      "data": { "name": "Flowchart coverage", "color": "#3b82f6", "alpha": 0.15, "order": 0 }
+    }
+  ]
+}

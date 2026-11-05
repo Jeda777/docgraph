@@ -1,0 +1,64 @@
+services:
+  app:
+    # Published image; pin a version (e.g. :1.2) to update only when you choose to.
+    image: ghcr.io/jeda777/docgraph:latest
+    # To build from this checkout instead, replace `image` with:
+    # build:
+    #   context: ..
+    #   dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    ports:
+      # Behind a reverse proxy publish on localhost only: 127.0.0.1:3000:3000 (see README.md)
+      - 3000:3000
+    environment:
+      # --- server ---
+      APP_URL: http://localhost:3000 # public origin, e.g. https://docs.example.com behind a proxy
+      # --- database ---
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: docgraph
+      DB_PASSWORD: change-me-db-password
+      DB_NAME: docgraph
+      # --- logging ---
+      LOG_LEVEL: info # trace | debug | info | warning | error | fatal
+      LOG_FORMAT: text # text | json (one JSON object per line, for log aggregators)
+      # --- auth secret (at least 32 random characters, e.g. `openssl rand -base64 32`) ---
+      BETTER_AUTH_SECRET: change-me-at-least-32-random-characters
+      # --- initial admin account (seeded on first start) ---
+      ADMIN_EMAIL: admin@example.com
+      ADMIN_PASSWORD: Strong-passw0rd
+      # --- smtp ---
+      # Optional: remove all SMTP_* vars to log login codes and invitation links instead of emailing them
+      SMTP_HOST: smtp.email
+      SMTP_PORT: 587
+      SMTP_USER: user
+      SMTP_PASSWORD: password
+      SMTP_TLS: false
+      SMTP_FROM: no-reply@example.com
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:3000/health']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  postgres:
+    image: postgres:18.6
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: docgraph
+      POSTGRES_PASSWORD: change-me-db-password
+      POSTGRES_DB: docgraph
+    volumes:
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U docgraph -d docgraph']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db-data:
