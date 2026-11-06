@@ -5,6 +5,11 @@
   ignorePaths: ['**/node_modules/**'],
   // Longer than pnpm's `minimumReleaseAge` (1 day), so pnpm can install every proposed version.
   minimumReleaseAge: '3 days',
+  timezone: 'Europe/Warsaw',
+  // Removes the default 2/h limit, which a few weekly runs can't keep up with. The 10 open PR cap still applies.
+  prHourlyLimit: 0,
+  // Security PRs skip the schedule. OSV finds advisories even without GitHub's Dependabot alerts.
+  osvVulnerabilityAlerts: true,
   rangeStrategy: 'bump',
   postUpdateOptions: ['pnpmDedupe'],
   lockFileMaintenance: { enabled: true, commitMessageAction: 'refresh lock file' },
