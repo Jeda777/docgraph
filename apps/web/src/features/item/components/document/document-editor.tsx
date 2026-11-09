@@ -1,4 +1,5 @@
 import './document-editor.css'
+import { nodeColorAt } from '@docgraph/common/schemas'
 import { useHocuspocusProvider } from '@hocuspocus/provider-react'
 import Collaboration from '@tiptap/extension-collaboration'
 import CollaborationCaret from '@tiptap/extension-collaboration-caret'
@@ -13,7 +14,7 @@ import { useEffect } from 'react'
 import { PageSpinner } from '@/components/page-spinner'
 import { useMe } from '@/lib/api'
 import { useDocumentReadOnly } from '../../hooks/use-document-read-only'
-import { collaboratorColor } from '../../lib/node-color.helpers'
+import { nodeColorVar } from '../../lib/node-color.helpers'
 import type { CrdtEditorProps } from '../../lib/types'
 import { DocumentToolbar } from './document-toolbar'
 import { SlashCommands } from './slash-commands'
@@ -36,21 +37,25 @@ export const DocumentEditor = ({ connected, itemName }: CrdtEditorProps) => {
         Collaboration.configure({ document: provider.document, field: 'content' }),
         CollaborationCaret.configure({
           provider,
+          // The extension replaces any `color` that is not `#rrggbb` with
+          // `transparent`, so the theme color travels as a name in `colorName`.
           user: {
             name: name || 'Anonymous',
-            color: collaboratorColor(provider.awareness?.clientID ?? 0),
+            colorName: nodeColorAt(provider.awareness?.clientID ?? 0),
           },
           render: (caretUser) => {
+            const color = nodeColorVar(caretUser.colorName)
+
             const caret = document.createElement('span')
             caret.classList.add('collaboration-carets__caret')
-            caret.setAttribute('style', `border-color: ${caretUser.color}`)
+            caret.style.borderColor = color
 
             const label = document.createElement('div')
             label.classList.add('collaboration-carets__label')
-            label.setAttribute('style', `background-color: ${caretUser.color}`)
-            label.insertBefore(document.createTextNode(caretUser.name), null)
+            label.style.backgroundColor = color
+            label.textContent = String(caretUser.name ?? '')
 
-            caret.insertBefore(label, null)
+            caret.append(label)
             return caret
           },
           // The default selection builder appends a hex alpha suffix to the
@@ -58,7 +63,7 @@ export const DocumentEditor = ({ connected, itemName }: CrdtEditorProps) => {
           selectionRender: (selectionUser) => ({
             nodeName: 'span',
             class: 'collaboration-carets__selection',
-            style: `background-color: color-mix(in srgb, ${selectionUser.color} 30%, transparent)`,
+            style: `background-color: color-mix(in srgb, ${nodeColorVar(selectionUser.colorName)} 30%, transparent)`,
           }),
         }),
         Placeholder.configure({ placeholder: 'Start writing…' }),
