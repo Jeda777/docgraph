@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { Node } from '@xyflow/react'
 import type { SetStateAction } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -10,12 +10,25 @@ import {
   getAutoSize,
 } from './editable-node-text'
 
-const provider = vi.hoisted(() => ({
-  authorizedScope: undefined as string | undefined,
-  awareness: { setLocalStateField: vi.fn() },
-  on: () => {},
-  off: () => {},
-}))
+const provider = vi.hoisted(() => {
+  const changeListeners = new Set<() => void>()
+  return {
+    authorizedScope: undefined as string | undefined,
+    awareness: {
+      clientID: 1,
+      states: new Map<number, Record<string, unknown>>(),
+      getStates: () => provider.awareness.states,
+      setLocalStateField: vi.fn(),
+      on: (_event: string, listener: () => void) => changeListeners.add(listener),
+      off: (_event: string, listener: () => void) => changeListeners.delete(listener),
+      emitChange: () => {
+        for (const listener of changeListeners) listener()
+      },
+    },
+    on: () => {},
+    off: () => {},
+  }
+})
 
 vi.mock('@hocuspocus/provider-react', () => ({ useHocuspocusProvider: () => provider }))
 
@@ -55,12 +68,22 @@ const startEditing = () => fireEvent.doubleClick(display())
 
 const type = (text: string) => fireEvent.change(textarea(), { target: { value: text } })
 
+/** Sets another client's awareness state, as a synced update would. */
+const setRemoteState = (clientId: number, state: Record<string, unknown>) =>
+  act(() => {
+    provider.awareness.states.set(clientId, state)
+    provider.awareness.emitChange()
+  })
+
+const caret = () => display().querySelector<HTMLElement>('.animate-caret-blink')
+
 afterEach(cleanup)
 
 beforeEach(() => {
   vi.clearAllMocks()
   nodes = structuredClone(NODES)
   provider.authorizedScope = undefined
+  provider.awareness.states = new Map()
 })
 
 describe('getAutoSize', () => {
@@ -196,6 +219,34 @@ describe('EditableNodeText', () => {
 
     fireEvent.blur(textarea())
     expect(provider.awareness.setLocalStateField).toHaveBeenLastCalledWith('editing', null)
+  })
+
+  it("shows a caret in the remote editor's color while another user edits the text", () => {
+    renderText()
+    expect(caret()).toBeNull()
+
+    setRemoteState(2, { colorName: 'blue', editing: { nodeId: 'n1', field: 'text' } })
+    expect(caret()?.style.background).toBe('var(--color-blue-500)')
+
+    setRemoteState(2, { colorName: 'blue', editing: null })
+    expect(caret()).toBeNull()
+  })
+
+  it('shows no caret for edits of another node or by the local user', () => {
+    renderText()
+
+    setRemoteState(2, { colorName: 'blue', editing: { nodeId: 'n2', field: 'text' } })
+    setRemoteState(1, { colorName: 'red', editing: { nodeId: 'n1', field: 'text' } })
+
+    expect(caret()).toBeNull()
+  })
+
+  it('falls back to gray for an unknown remote editor color', () => {
+    renderText()
+
+    setRemoteState(2, { colorName: 'var(--x)', editing: { nodeId: 'n1', field: 'text' } })
+
+    expect(caret()?.style.background).toBe('var(--color-gray-500)')
   })
 
   it('follows remote value changes while not editing', () => {

@@ -1,4 +1,4 @@
-import { NODE_COLORS, type NodeColor, nodeColorAt } from '@docgraph/common/schemas'
+import { NODE_COLORS, type NodeColor } from '@docgraph/common/schemas'
 
 const isNodeColor = (value: unknown): value is NodeColor => NODE_COLORS.includes(value as NodeColor)
 
@@ -9,9 +9,6 @@ const isNodeColor = (value: unknown): value is NodeColor => NODE_COLORS.includes
  */
 export const nodeColorVar = (color: unknown) =>
   `var(--color-${isNodeColor(color) ? color : 'gray'}-500)`
-
-/** CSS color of a collaborator's cursor and caret, stable for their awareness client id. */
-export const collaboratorColor = (clientId: number) => nodeColorVar(nodeColorAt(clientId))
 
 export const colorClasses: Record<NodeColor, string> = {
   red: 'bg-red-500',

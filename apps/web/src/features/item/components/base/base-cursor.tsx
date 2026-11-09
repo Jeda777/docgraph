@@ -3,7 +3,7 @@ import { MousePointer2, Move } from 'lucide-react'
 export type BaseCursorProps = {
   position: { x: number; y: number }
   name: string
-  color?: string
+  color: string
   /** Swap the pointer for a move icon while this user drags a node. */
   dragging?: boolean
 }
@@ -24,21 +24,17 @@ export const BaseCursor = ({ position, name, color, dragging }: BaseCursorProps)
       }}
     >
       {dragging ? (
-        <Move
-          aria-hidden='true'
-          className='size-6 absolute -left-1.5 -top-1.5'
-          style={{ color: color || 'red' }}
-        />
+        <Move aria-hidden='true' className='size-6 absolute -left-1.5 -top-1.5' style={{ color }} />
       ) : (
         <MousePointer2
           fill='currentColor'
           aria-hidden='true'
           className='size-6 absolute -left-1.5 -top-1.5'
-          style={{ color: color || 'red' }}
+          style={{ color }}
         />
       )}
       <div
-        style={{ background: color || 'red' }}
+        style={{ background: color }}
         className='absolute left-2 top-2 size-5 flex items-center justify-center text-white rounded-full text-xs'
       >
         {initials}
