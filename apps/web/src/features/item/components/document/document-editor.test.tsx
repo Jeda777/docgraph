@@ -18,13 +18,15 @@ const mock = vi.hoisted(() => {
       authorizedScope: 'read-write' as 'read-write' | 'readonly',
       awareness: {
         clientID: 7,
-        states: new Map(),
-        getStates: () => new Map(),
+        states: new Map<number, unknown>(),
+        getStates: () => mock.provider.awareness.states,
         getLocalState: () => null,
         setLocalState: () => {},
         setLocalStateField: (() => {}) as (field: string, value: unknown) => void,
-        on: () => {},
-        off: () => {},
+        on: (event: string, listener: () => void) =>
+          mock.provider.on(`awareness:${event}`, listener),
+        off: (event: string, listener: () => void) =>
+          mock.provider.off(`awareness:${event}`, listener),
       },
       on: (event: string, listener: () => void) => {
         if (!listeners.has(event)) listeners.set(event, new Set())
@@ -55,6 +57,15 @@ const insertParagraph = (doc: Y.Doc, text: string) => {
   fragment.insert(fragment.length, [paragraph])
 }
 
+/** Publishes a remote peer's user and cursor (inside the first paragraph) through awareness. */
+const showRemoteCaret = (user: Record<string, unknown>) => {
+  const doc = mock.provider.document
+  const text = (doc.getXmlFragment('content').get(0) as Y.XmlElement).get(0) as Y.XmlText
+  const position = Y.relativePositionToJSON(Y.createRelativePositionFromTypeIndex(text, 5))
+  mock.provider.awareness.states.set(99, { user, cursor: { anchor: position, head: position } })
+  mock.provider.emit('awareness:change')
+}
+
 const renderEditor = () =>
   render(
     <QueryClientProvider client={new QueryClient()}>
@@ -70,6 +81,7 @@ beforeEach(() => {
   mock.provider.document = new Y.Doc()
   insertParagraph(mock.provider.document, 'First line')
   mock.provider.authorizedScope = 'read-write'
+  mock.provider.awareness.states = new Map()
   mock.provider.awareness.setLocalStateField = vi.fn()
   mock.me.name = 'Jane'
 })
@@ -122,6 +134,39 @@ describe('DocumentEditor', () => {
         expect.objectContaining({ name: 'Jane' }),
       ),
     )
+  })
+
+  it('publishes the caret color as a theme color name', async () => {
+    renderEditor()
+
+    await waitFor(() =>
+      expect(mock.provider.awareness.setLocalStateField).toHaveBeenCalledWith(
+        'user',
+        expect.objectContaining({ colorName: 'violet' }),
+      ),
+    )
+  })
+
+  it("shows a remote peer's caret in their theme color", async () => {
+    renderEditor()
+    await screen.findByText('First line')
+
+    act(() => showRemoteCaret({ name: 'Bob', colorName: 'blue' }))
+
+    const label = await screen.findByText('Bob')
+    const caret = label.closest<HTMLElement>('.collaboration-carets__caret')
+    expect(caret?.style.borderColor).toBe('var(--color-blue-500)')
+    expect(label.style.backgroundColor).toBe('var(--color-blue-500)')
+  })
+
+  it('falls back to gray for an unknown remote caret color', async () => {
+    renderEditor()
+    await screen.findByText('First line')
+
+    act(() => showRemoteCaret({ name: 'Bob', colorName: 'red; background: url(x)' }))
+
+    const label = await screen.findByText('Bob')
+    expect(label.style.backgroundColor).toBe('var(--color-gray-500)')
   })
 
   it('labels the caret as Anonymous for a user without a name', async () => {
