@@ -36,7 +36,12 @@ export const SortableListItem = <T extends SortableItemBase>({
             className='truncate rounded-sm font-medium underline-offset-4 after:absolute after:inset-0 group-hover:underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none'
           >
             {item.name}
-            {item.isArchived && <span className='sr-only'> (archived)</span>}
+            {item.isArchived && (
+              <>
+                {' '}
+                <span className='sr-only'>(archived)</span>
+              </>
+            )}
           </Link>
           {item.isArchived && <ArchivedBadge />}
         </div>

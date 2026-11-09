@@ -54,7 +54,12 @@ export const SortableListCard = <T extends SortableItemBase>({
             className='truncate text-[0.9375rem] font-semibold tracking-tight outline-none after:absolute after:inset-0 after:rounded-xl'
           >
             {item.name}
-            {item.isArchived && <span className='sr-only'> (archived)</span>}
+            {item.isArchived && (
+              <>
+                {' '}
+                <span className='sr-only'>(archived)</span>
+              </>
+            )}
           </Link>
           {item.isArchived && <ArchivedBadge />}
         </div>
