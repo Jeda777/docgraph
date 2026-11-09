@@ -1,6 +1,8 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
-  extends: ['config:recommended', 'schedule:weekly', 'helpers:pinGitHubActionDigests'],
+  extends: ['config:recommended', 'helpers:pinGitHubActionDigests'],
+  // All of Monday: the hosted app runs every few hours, so a short window is easy to miss.
+  schedule: ['* * * * 1'],
   // The default also skips `test` folders, where the Testcontainers setup lives.
   ignorePaths: ['**/node_modules/**'],
   // Longer than pnpm's `minimumReleaseAge` (1 day), so pnpm can install every proposed version.
@@ -12,7 +14,12 @@
   osvVulnerabilityAlerts: true,
   rangeStrategy: 'bump',
   postUpdateOptions: ['pnpmDedupe'],
-  lockFileMaintenance: { enabled: true, commitMessageAction: 'refresh lock file' },
+  // Has its own default schedule (before 4am on Monday), which the top-level one doesn't override.
+  lockFileMaintenance: {
+    enabled: true,
+    commitMessageAction: 'refresh lock file',
+    schedule: ['* * * * 1'],
+  },
   // Commits: `chore: update …`. PR titles add the icon from CONTRIBUTING.md: `🐢 chore: update …`.
   // `prTitle` is deprecated, but it is the only way to make them differ.
   semanticCommits: 'disabled',
