@@ -2,7 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { useDocumentReadOnly } from '../../hooks/use-document-read-only'
 import { useEditingPresence } from '../../hooks/use-editing-presence'
+import { useRemoteNodeEditors } from '../../hooks/use-remote-node-editors'
 import { useDiagramMutationContext } from './diagram-canvas'
+import { EditCaret } from './edit-caret'
+
+/** Edit presence field id of the node text, shared by the writer and the remote caret. */
+const TEXT_FIELD = 'text'
 
 export type EditableNodeAutoSize = {
   defaultWidth: number
@@ -70,6 +75,7 @@ export const EditableNodeText = ({
   const readOnly = readOnlyProp ?? documentReadOnly
   const mutations = useDiagramMutationContext()
   const { startEditing, stopEditing } = useEditingPresence()
+  const remoteEditorColor = useRemoteNodeEditors(nodeId)[TEXT_FIELD]
   const [draft, setDraft] = useState(value)
   const [editing, setEditing] = useState(false)
   const originalValue = useRef(value)
@@ -164,6 +170,7 @@ export const EditableNodeText = ({
         }}
       >
         {value}
+        {remoteEditorColor && <EditCaret color={remoteEditorColor} />}
       </button>
     )
   }
@@ -187,7 +194,7 @@ export const EditableNodeText = ({
         // A cancelled editor unmounts without a blur, so the flag would swallow the next commit.
         skipBlurCommit.current = false
         originalValue.current = draft
-        if (!readOnly) startEditing(nodeId, 'text')
+        if (!readOnly) startEditing(nodeId, TEXT_FIELD)
       }}
       onBlur={commit}
       onKeyDown={(event) => {

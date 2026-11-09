@@ -1,5 +1,6 @@
 import { useHocuspocusProvider } from '@hocuspocus/provider-react'
 import { useEffect, useState } from 'react'
+import { nodeColorVar } from '../lib/node-color.helpers'
 
 export type EditingState = {
   nodeId: string
@@ -28,7 +29,7 @@ export const useRemoteNodeEditors = (nodeId: string): Record<string, string> => 
         if (clientId === selfId) return
         const editing = state.editing as EditingState | null | undefined
         if (editing && editing.nodeId === nodeId) {
-          next[editing.field] = state.color || 'red'
+          next[editing.field] = nodeColorVar(state.colorName)
         }
       })
 

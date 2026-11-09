@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { collaboratorColor, nodeColorVar } from './node-color.helpers'
+import { nodeColorVar } from './node-color.helpers'
 
 describe('nodeColorVar', () => {
   it('maps a known node color to its theme variable', () => {
@@ -12,10 +12,4 @@ describe('nodeColorVar', () => {
       expect(nodeColorVar(value)).toBe('var(--color-gray-500)')
     },
   )
-})
-
-describe('collaboratorColor', () => {
-  it('uses the node color picked for the client id', () => {
-    expect(collaboratorColor(3)).toBe('var(--color-lime-500)')
-  })
 })

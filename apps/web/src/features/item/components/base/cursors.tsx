@@ -1,8 +1,9 @@
+import { nodeColorAt } from '@docgraph/common/schemas'
 import { useHocuspocusProvider } from '@hocuspocus/provider-react'
 import { useReactFlow, useViewport } from '@xyflow/react'
 import { useEffect, useState } from 'react'
 import { useMe } from '@/lib/api'
-import { collaboratorColor } from '../../lib/node-color.helpers'
+import { nodeColorVar } from '../../lib/node-color.helpers'
 import { BaseCursor } from './base-cursor'
 
 /** Throttle interval for broadcasting the local pointer over awareness. */
@@ -11,7 +12,8 @@ const BROADCAST_INTERVAL_MS = 50
 export type AwarenessCursorState = {
   clientId: number
   name?: string
-  color?: string
+  /** Theme color name; resolve with `nodeColorVar`, as it comes from another client. */
+  colorName?: unknown
   /** Id of the node this user is currently dragging, if any. */
   draggingNodeId?: string | null
   /** Pointer position in flow (canvas) coordinates. `null` while hidden. */
@@ -52,7 +54,7 @@ export const Cursors = () => {
     if (!awareness) return
 
     awareness.setLocalStateField('name', name || 'Anonymous')
-    awareness.setLocalStateField('color', collaboratorColor(awareness.clientID))
+    awareness.setLocalStateField('colorName', nodeColorAt(awareness.clientID))
 
     let lastMove = 0
     let hidden = false
@@ -112,7 +114,7 @@ export const Cursors = () => {
             key={c.clientId}
             position={position}
             name={c.name || 'Anonymous'}
-            color={c.color}
+            color={nodeColorVar(c.colorName)}
             dragging={!!c.draggingNodeId}
           />
         )
