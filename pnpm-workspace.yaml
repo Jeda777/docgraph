@@ -60,8 +60,8 @@ catalog:
   react-dom: ^19.3.1
   "@types/react": ^19.3.0
   "@types/react-dom": ^19.3.0
-  react-email: ^6.11.6
-  "@react-email/ui": ^6.11.6
+  react-email: ^6.11.8
+  "@react-email/ui": ^6.11.8
   #other
   vitest: ^5.1.0
   testcontainers: ^12.2.1
