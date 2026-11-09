@@ -39,7 +39,7 @@
     "cn": "^0.5.2",
     "html-to-image": "^1.11.13",
     "input-otp": "^1.5.0",
-    "lucide-react": "^1.66.0",
+    "lucide-react": "^1.70.0",
     "react": "catalog:",
     "react-dom": "catalog:",
     "react-hook-form": "^7.91.0",
