@@ -19,7 +19,7 @@
     "@hocuspocus/provider-react": "catalog:",
     "@hookform/resolvers": "^5.9.2",
     "@tailwindcss/vite": "^4.3.4",
-    "@tanstack/react-query": "^5.105.2",
+    "@tanstack/react-query": "^5.106.1",
     "@tiptap/extension-collaboration": "catalog:",
     "@tiptap/extension-collaboration-caret": "catalog:",
     "@tiptap/extension-drag-handle": "catalog:",
