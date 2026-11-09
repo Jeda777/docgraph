@@ -169,8 +169,10 @@ export const EditableNodeText = ({
           }
         }}
       >
-        {value}
-        {remoteEditorColor && <EditCaret color={remoteEditorColor} />}
+        <span>
+          {value}
+          {remoteEditorColor && <EditCaret color={remoteEditorColor} />}
+        </span>
       </button>
     )
   }
