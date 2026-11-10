@@ -30,6 +30,31 @@ test.describe('live collaboration in two tabs', () => {
     await expect(canvasNode(second, 'Process: Written in tab two')).toBeVisible()
   })
 
+  test('undoes only the edits made in its own tab', async ({ context, page: first }) => {
+    const project = await createProject(first.request)
+    const item = await createItem(first.request, project.id, 'FLOWCHART')
+
+    const second = await context.newPage()
+    await Promise.all([first.goto(`/item/${item.id}`), second.goto(`/item/${item.id}`)])
+    await expect(first.getByRole('complementary')).toBeVisible()
+    await expect(second.getByRole('complementary')).toBeVisible()
+
+    await addFromPalette(first, 'Process')
+    await expect(canvasNode(second, 'Process')).toHaveCount(1)
+    await addFromPalette(second, 'Decision')
+    await expect(canvasNode(first, 'Decision')).toHaveCount(1)
+
+    // The other tab's Decision is not part of this tab's history
+    await first.keyboard.press('Control+z')
+    await expect(canvasNode(second, 'Process')).toHaveCount(0)
+    await expect(canvasNode(first, 'Decision')).toHaveCount(1)
+    await expect(first.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled()
+
+    await first.getByRole('button', { name: 'Redo', exact: true }).click()
+    await expect(canvasNode(second, 'Process')).toHaveCount(1)
+    await expect(canvasNode(second, 'Decision')).toHaveCount(1)
+  })
+
   test('syncs document text as it is typed', async ({ context, page: first }) => {
     const project = await createProject(first.request)
     const item = await createItem(first.request, project.id, 'DOCUMENT')

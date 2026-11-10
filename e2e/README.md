@@ -9,7 +9,7 @@ emails. Both run in [Testcontainers](https://testcontainers.com) started by `glo
 | `tests/auth.setup.ts` | Signs in the seeded admin once and stores the session for the other specs |
 | `tests/otp-login.spec.ts` | Login with a one-time code read from Mailpit, a rejected wrong code, the redirect back to a deep link, no account enumeration |
 | `tests/diagram.spec.ts` | Creating a project and a flowchart through the UI, adding shapes, editing node text, reopening the item in a new tab and reloading it right after an edit |
-| `tests/collaboration.spec.ts` | Two tabs on one item: flowchart nodes, node text and deletions, and document text sync live both ways |
+| `tests/collaboration.spec.ts` | Two tabs on one item: flowchart nodes, node text and deletions, and document text sync live both ways; diagram undo/redo leaves the other tab's edits in place |
 | `tests/password.spec.ts` | Password login, a rejected wrong password, logout, and setting a new password with a code from the email |
 | `tests/invitation.spec.ts` | The admin invites a user in the Users dialog (a duplicate is refused), the invited user opens the link from the email and signs in with a code, and sees no admin features |
 | `tests/user-management.spec.ts` | The admin's own row has no actions; promoting a user shows them the admin features, demoting removes them; deleting the user signs them out and their API key gets 401 |

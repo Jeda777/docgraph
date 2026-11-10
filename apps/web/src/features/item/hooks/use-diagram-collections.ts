@@ -14,7 +14,23 @@ import {
 import type { AreaNode } from '../components/base/area-node'
 import { useDocumentReadOnly } from './use-document-read-only'
 import { useNodeDragPresence } from './use-node-drag-presence'
-import { useYjsCollection } from './use-yjs-collection'
+import { COLLECTION_WRITE_ORIGIN, useYjsCollection } from './use-yjs-collection'
+import { useYjsUndo } from './use-yjs-undo'
+
+const DIAGRAM_MAP_NAMES = Object.values(DIAGRAM_MAPS)
+
+/** Nodes whose parent is not among `elementIds`, together with everything nested inside them. */
+const findOrphanNodeIds = (nodes: readonly Node[], elementIds: ReadonlySet<string>) => {
+  const orphanIds = new Set<string>()
+  const isOrphan = ({ parentId }: Node) =>
+    !!parentId && (!elementIds.has(parentId) || orphanIds.has(parentId))
+  let previousSize = -1
+  while (orphanIds.size !== previousSize) {
+    previousSize = orphanIds.size
+    for (const item of nodes) if (isOrphan(item)) orphanIds.add(item.id)
+  }
+  return orphanIds
+}
 
 export type DiagramCollectionsOptions<NodeType extends Node, EdgeType extends Edge> = {
   /** React Flow edge type assigned to edges created by connecting handles. */
@@ -45,21 +61,60 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
 }: DiagramCollectionsOptions<NodeType, EdgeType>) => {
   const readOnly = useDocumentReadOnly()
   const provider = useHocuspocusProvider()
-  const [nodes, setRawNodes, holdNodes, replaceNodes] = useYjsCollection<NodeType>(
-    DIAGRAM_MAPS.nodes,
-  )
-  // Every local node edit goes through `normalizeNodes`; remote updates bypass it.
+  const nodeCollection = useYjsCollection<NodeType>(DIAGRAM_MAPS.nodes)
+  const edgeCollection = useYjsCollection<EdgeType>(DIAGRAM_MAPS.edges)
+  const areaCollection = useYjsCollection<AreaNode>(DIAGRAM_MAPS.areas)
+  const { items: nodes, setItems: setRawNodes } = nodeCollection
+  const { items: edges, setItems: setEdges } = edgeCollection
+  const { items: areas, setItems: setAreas } = areaCollection
+  // Every local node edit goes through `normalizeNodes`; remote updates and undo/redo bypass it.
   const setNodes: React.Dispatch<React.SetStateAction<NodeType[]>> = (action) =>
     setRawNodes((current) => {
       const next = typeof action === 'function' ? action(current) : action
       return normalizeNodes ? normalizeNodes(next) : next
     })
-  const [edges, setEdges, , replaceEdges] = useYjsCollection<EdgeType>(DIAGRAM_MAPS.edges)
-  const [areas, setAreas, holdAreas, replaceAreas] = useYjsCollection<AreaNode>(DIAGRAM_MAPS.areas)
+
+  /**
+   * Undo can restore a node whose parent, or an edge whose node, a peer deleted in the meantime.
+   * Such orphans are deleted again, as the peer's delete would have done, along with their edges
+   * and references to them, outside the undo history.
+   */
+  const dropOrphans = () => {
+    const doc = provider.document
+    const storedNodes = Array.from(doc.getMap<NodeType>(DIAGRAM_MAPS.nodes).values())
+    const elementIds = new Set([
+      ...storedNodes.map((item) => item.id),
+      ...doc.getMap(DIAGRAM_MAPS.areas).keys(),
+    ])
+    const orphanNodeIds = findOrphanNodeIds(storedNodes, elementIds)
+    const isGone = (id: string) => !elementIds.has(id) || orphanNodeIds.has(id)
+    const danglingEdgeIds = new Set(
+      Array.from(doc.getMap<EdgeType>(DIAGRAM_MAPS.edges).values())
+        .filter((edge) => isGone(edge.source) || isGone(edge.target))
+        .map((edge) => edge.id),
+    )
+    if (!orphanNodeIds.size && !danglingEdgeIds.size) return
+    edgeCollection.repairItems((current) => current.filter((edge) => !danglingEdgeIds.has(edge.id)))
+    nodeCollection.repairItems((current) => {
+      const remaining = current.filter((item) => !orphanNodeIds.has(item.id))
+      return cleanDeletedReferences
+        ? cleanDeletedReferences(remaining, orphanNodeIds, danglingEdgeIds)
+        : remaining
+    })
+  }
+
+  const collections = [nodeCollection, edgeCollection, areaCollection]
+  const history = useYjsUndo(DIAGRAM_MAP_NAMES, {
+    flushPending: () => {
+      for (const collection of collections) collection.flush()
+    },
+    held: collections.some((collection) => collection.held),
+    repair: dropOrphans,
+  })
 
   const hold = (ids: string[]) => {
-    holdNodes(ids)
-    holdAreas(ids)
+    nodeCollection.hold(ids)
+    areaCollection.hold(ids)
   }
   const { onNodeDragStart, onNodeDragStop, trackResize } = useNodeDragPresence(hold)
 
@@ -139,10 +194,10 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
 
   const replaceDocument = (next: { nodes: NodeType[]; edges: EdgeType[]; areas: AreaNode[] }) => {
     provider.document.transact(() => {
-      replaceNodes(normalizeNodes ? normalizeNodes(next.nodes) : next.nodes)
-      replaceEdges(next.edges)
-      replaceAreas(next.areas)
-    })
+      nodeCollection.replaceItems(normalizeNodes ? normalizeNodes(next.nodes) : next.nodes)
+      edgeCollection.replaceItems(next.edges)
+      areaCollection.replaceItems(next.areas)
+    }, COLLECTION_WRITE_ORIGIN)
   }
 
   return {
@@ -150,6 +205,7 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
     edges,
     areas,
     setNodes,
+    repairNodes: nodeCollection.repairItems,
     setEdges,
     setAreas,
     layeredAreas,
@@ -162,5 +218,6 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
     onNodeDragStart,
     onNodeDragStop,
     replaceDocument,
+    history,
   }
 }

@@ -407,6 +407,170 @@ describe('useDiagramCollections', () => {
     })
   })
 
+  describe('history', () => {
+    it('undoes a node removal and its connected edges in one step', () => {
+      seed({ nodes: [node('a'), node('b')], edges: [edge('ab', 'a', 'b')] })
+      const { result } = renderCollections()
+
+      act(() => result.current.onNodesChange([{ type: 'remove', id: 'b' }]))
+      act(() => result.current.history.undo())
+
+      expect(ids(result.current.nodes)).toEqual(['a', 'b'])
+      expect(ids(result.current.edges)).toEqual(['ab'])
+      expect(result.current.history.canUndo).toBe(false)
+    })
+
+    it('drops an edge undo restores after a peer deleted its node, keeping the redo', () => {
+      seed({ nodes: [node('a'), node('b')], edges: [edge('ab', 'a', 'b')] })
+      const { result } = renderCollections()
+      act(() =>
+        result.current.setEdges((current) =>
+          current.map((item) => ({ ...item, data: { kind: 'renamed' } })),
+        ),
+      )
+
+      const peer = new Y.Doc()
+      Y.applyUpdate(peer, Y.encodeStateAsUpdate(provider.document))
+      const before = Y.encodeStateVector(peer)
+      peer.transact(() => {
+        peer.getMap(DIAGRAM_MAPS.nodes).delete('b')
+        peer.getMap(DIAGRAM_MAPS.edges).delete('ab')
+      })
+      act(() => Y.applyUpdate(provider.document, Y.encodeStateAsUpdate(peer, before)))
+
+      act(() => result.current.history.undo())
+
+      expect(stored(DIAGRAM_MAPS.edges)).toEqual({})
+      expect(result.current.edges).toEqual([])
+      expect(result.current.history.canRedo).toBe(true)
+    })
+
+    it('cleans node references to an edge it drops after an undo', () => {
+      seed({ nodes: [node('a', 0, ['ab']), node('b')], edges: [edge('ab', 'a', 'b')] })
+      const cleanDeletedReferences = (
+        nodes: TestNode[],
+        _deletedNodeIds: ReadonlySet<string>,
+        deletedEdgeIds: ReadonlySet<string>,
+      ) =>
+        nodes.map((item) => ({
+          ...item,
+          data: { ...item.data, refs: item.data.refs?.filter((ref) => !deletedEdgeIds.has(ref)) },
+        }))
+      const { result } = renderCollections({ cleanDeletedReferences })
+      act(() => result.current.onEdgesChange([{ type: 'remove', id: 'ab' }]))
+
+      const peer = new Y.Doc()
+      Y.applyUpdate(peer, Y.encodeStateAsUpdate(provider.document))
+      const before = Y.encodeStateVector(peer)
+      peer.getMap(DIAGRAM_MAPS.nodes).delete('b')
+      act(() => Y.applyUpdate(provider.document, Y.encodeStateAsUpdate(peer, before)))
+
+      act(() => result.current.history.undo())
+
+      expect(stored(DIAGRAM_MAPS.edges)).toEqual({})
+      expect(docMap<TestNode>(DIAGRAM_MAPS.nodes).get('a')?.data.refs).toEqual([])
+      expect(result.current.nodes[0].data.refs).toEqual([])
+    })
+
+    it('drops nodes undo restores after a peer deleted their parent, with their edges', () => {
+      seed({
+        nodes: [
+          node('pool'),
+          { ...node('lane'), parentId: 'pool' },
+          { ...node('task'), parentId: 'lane' },
+          node('x'),
+        ],
+        edges: [edge('tx', 'task', 'x')],
+      })
+      const cleanDeletedReferences = vi.fn((nodes: TestNode[]) => nodes)
+      const { result } = renderCollections({ cleanDeletedReferences })
+      act(() => {
+        result.current.setNodes((current) =>
+          current.map((item) =>
+            item.id === 'lane' || item.id === 'task'
+              ? { ...item, position: { x: 10, y: 0 } }
+              : item,
+          ),
+        )
+        result.current.setEdges((current) =>
+          current.map((item) => ({ ...item, data: { kind: 'renamed' } })),
+        )
+      })
+      flush()
+
+      const peer = new Y.Doc()
+      Y.applyUpdate(peer, Y.encodeStateAsUpdate(provider.document))
+      const before = Y.encodeStateVector(peer)
+      peer.transact(() => {
+        for (const id of ['pool', 'lane', 'task']) peer.getMap(DIAGRAM_MAPS.nodes).delete(id)
+        peer.getMap(DIAGRAM_MAPS.edges).delete('tx')
+      })
+      act(() => Y.applyUpdate(provider.document, Y.encodeStateAsUpdate(peer, before)))
+
+      act(() => result.current.history.undo())
+
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes))).toEqual(['x'])
+      expect(stored(DIAGRAM_MAPS.edges)).toEqual({})
+      expect(ids(result.current.nodes)).toEqual(['x'])
+      expect(result.current.edges).toEqual([])
+      expect(cleanDeletedReferences).toHaveBeenLastCalledWith(
+        expect.any(Array),
+        new Set(['lane', 'task']),
+        new Set(['tx']),
+      )
+    })
+
+    it("keeps a node repair after a peer's text change out of the undo history", () => {
+      seed({ nodes: [node('a')] })
+      const { result } = renderCollections()
+
+      const peer = new Y.Doc()
+      Y.applyUpdate(peer, Y.encodeStateAsUpdate(provider.document))
+      const before = Y.encodeStateVector(peer)
+      peer.getMap<TestNode>(DIAGRAM_MAPS.nodes).set('a', { ...node('a'), data: { label: 'long' } })
+      act(() => Y.applyUpdate(provider.document, Y.encodeStateAsUpdate(peer, before)))
+      act(() =>
+        result.current.repairNodes((current) =>
+          current.map((item) => ({ ...item, style: { width: 300 } })),
+        ),
+      )
+
+      expect(stored(DIAGRAM_MAPS.nodes).a).toMatchObject({ style: { width: 300 } })
+      expect(result.current.history.canUndo).toBe(false)
+    })
+
+    it('undoes and redoes a fix normalizeNodes makes to a local edit', () => {
+      seed({ nodes: [{ ...node('a'), width: 200 }] })
+      const atLeast100 = (nodes: TestNode[]) =>
+        nodes.map((item) => ({ ...item, width: Math.max(item.width ?? 0, 100) }))
+      const { result } = renderCollections({ normalizeNodes: atLeast100 })
+      const storedWidth = () => docMap<TestNode>(DIAGRAM_MAPS.nodes).get('a')?.width
+
+      act(() =>
+        result.current.setNodes((current) => current.map((item) => ({ ...item, width: 50 }))),
+      )
+      expect(storedWidth()).toBe(100)
+
+      act(() => result.current.history.undo())
+      expect(storedWidth()).toBe(200)
+
+      act(() => result.current.history.redo())
+      expect(storedWidth()).toBe(100)
+    })
+
+    it('undoes an import across all three collections', () => {
+      seed({ nodes: [node('a')], edges: [edge('e', 'a', 'a')], areas: [area('z')] })
+      const { result } = renderCollections()
+
+      act(() => result.current.replaceDocument({ nodes: [node('n')], edges: [], areas: [] }))
+      act(() => result.current.history.undo())
+
+      expect(ids(result.current.nodes)).toEqual(['a'])
+      expect(ids(result.current.edges)).toEqual(['e'])
+      expect(ids(result.current.areas)).toEqual(['z'])
+    })
+  })
+
   describe('remote updates', () => {
     it('are not normalized', () => {
       const normalizeNodes = vi.fn((nodes: TestNode[]) => nodes)

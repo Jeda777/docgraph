@@ -14,6 +14,7 @@ import { AreaNode } from '../base/area-node'
 import { DiagramCanvas } from '../base/diagram-canvas'
 import { FlowchartEdge } from './flowchart-edge'
 import { FlowchartNode } from './flowchart-node'
+import { fitNodesToText } from './flowchart-node-size.helpers'
 import { FlowchartSidebar } from './sidebar/flowchart-sidebar'
 
 export type FlowchartCanvasNode = Node<FlowchartNodeData, FlowchartNodeType>
@@ -41,6 +42,7 @@ export const FlowchartDiagram = ({ connected, itemName }: CrdtEditorProps) => {
       edgeTypes={edgeTypes}
       edgeType={activeEdgeType}
       createEdgeData={createEdgeData}
+      normalizeNodes={fitNodesToText}
       renderSidebar={(collections, name) => (
         <FlowchartSidebar
           {...collections}

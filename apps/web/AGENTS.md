@@ -18,6 +18,12 @@ General conventions: [root `AGENTS.md`](../../AGENTS.md).
 
 - Item content lives in a Yjs document via the Hocuspocus provider (`useHocuspocusProvider`) — never via REST, which handles metadata only.
 - Diagram collections go through `useYjsCollection` / `useDiagramCollections`; local UI state (selection, dragging) stays out of the shared document.
+- Diagram undo/redo (`useYjsUndo`):
+  - **What it tracks:** only transactions with origin `COLLECTION_WRITE_ORIGIN`. It reverts only this client's edits and doesn't overwrite a peer's newer value, though it brings back an item a peer deleted after this client edited it.
+  - **Writes:** diagram writes go through the collection (`setItems` / `replaceItems`); an outer transaction wrapping `replaceItems` passes `COLLECTION_WRITE_ORIGIN`.
+  - **`normalizeNodes` vs `repairItems`:** make local edits valid as they are written (`normalizeNodes`, e.g. the flowchart's `fitNodesToText`), so undo reverts the fix with the edit. Fixes for what this client didn't cause (a peer's edit, an older document, an undo restoring an edge without its node) go through `repairItems` (`repairNodes` in node components). It keeps them out of the undo history, but undo can then no longer restore this client's earlier edit of that item.
+  - **After undo/redo:** nodes left without their parent (with everything nested in them) and edges left without a node are dropped, along with references to them (`dropOrphans`).
+  - **During a drag:** undo and redo are off while a drag holds writes.
 - Hide editing controls for read-only documents with `useDocumentReadOnly`.
 
 ## Server communication

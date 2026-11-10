@@ -1,81 +1,45 @@
 import type { FlowchartNodeData, FlowchartNodeType } from '@docgraph/common/schemas'
 import { type Node, type NodeProps, NodeResizer, Position } from '@xyflow/react'
-import { type CSSProperties, memo, useEffect } from 'react'
+import { memo, useEffect } from 'react'
 import { useDocumentReadOnly } from '../../hooks/use-document-read-only'
 import { BaseNode } from '../base/base-node'
 import { useDiagramMutationContext } from '../base/diagram-canvas'
-import { EditableNodeText, getAutoSize } from '../base/editable-node-text'
+import { EditableNodeText } from '../base/editable-node-text'
 import { NodeHandle } from '../base/node-handle'
+import { fitNodeToText, getTextFitSize } from './flowchart-node-size.helpers'
 import { getFlowchartTool } from './flowchart-tool-registry'
 
 export type FlowchartNode = Node<FlowchartNodeData, FlowchartNodeType>
-export type FlowchartNodeProps = NodeProps<FlowchartNode> & { style?: CSSProperties }
-
-const DEFAULT_WIDTH = 180
-const DEFAULT_HEIGHT = 96
-const DEFAULT_MIN_WIDTH = 80
-const DEFAULT_MIN_HEIGHT = 48
-
-const finiteDimension = (value: number | string | undefined, fallback: number) => {
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(value ?? '')
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
-}
+export type FlowchartNodeProps = NodeProps<FlowchartNode>
 
 export const FlowchartNode = memo(
-  ({
-    id,
-    type,
-    data,
-    width: measuredWidth,
-    height: measuredHeight,
-    selected,
-    style,
-  }: FlowchartNodeProps) => {
+  ({ id, type, data, width: drawnWidth, height: drawnHeight, selected }: FlowchartNodeProps) => {
     const readOnly = useDocumentReadOnly()
     const mutations = useDiagramMutationContext()
     const tool = getFlowchartTool(type)
-    const width = finiteDimension(style?.width ?? measuredWidth, tool.defaultWidth ?? DEFAULT_WIDTH)
-    const height = finiteDimension(
-      style?.height ?? measuredHeight,
-      tool.defaultHeight ?? DEFAULT_HEIGHT,
-    )
-    const minWidth = tool.minWidth ?? DEFAULT_MIN_WIDTH
-    const minHeight = tool.minHeight ?? DEFAULT_MIN_HEIGHT
+    // The drawn size (0 until measured): React Flow draws `width`/`height` from resizing over `style`.
+    const width = drawnWidth || tool.defaultWidth
+    const height = drawnHeight || tool.defaultHeight
     const label = data.text ? `${tool.label}: ${data.text}` : tool.label
     const connectable = tool.connectable !== false
     const autoSize = {
-      defaultWidth: tool.defaultWidth ?? DEFAULT_WIDTH,
-      defaultHeight: tool.defaultHeight ?? DEFAULT_HEIGHT,
-      minWidth,
-      minHeight,
+      defaultWidth: tool.defaultWidth,
+      defaultHeight: tool.defaultHeight,
+      minWidth: tool.minWidth,
+      minHeight: tool.minHeight,
       preserveAspectRatio: tool.preserveAspectRatio,
     }
-    const { width: desiredWidth, height: desiredHeight } = getAutoSize(data.text, autoSize)
+    const fit = getTextFitSize(type, data.text)
 
+    // A peer's text edit or an older document can leave the node smaller than its text; local
+    // edits already fit (`fitNodesToText`). Every client grows it, so it isn't anyone's undo step.
     useEffect(() => {
       if (!mutations || readOnly) return
-      const currentWidth = finiteDimension(style?.width ?? measuredWidth, desiredWidth)
-      const currentHeight = finiteDimension(style?.height ?? measuredHeight, desiredHeight)
-      if (currentWidth >= desiredWidth && currentHeight >= desiredHeight) return
-
-      mutations.setNodes((nodes) =>
-        nodes.map((node) =>
-          node.id === id
-            ? { ...node, style: { ...node.style, width: desiredWidth, height: desiredHeight } }
-            : node,
-        ),
+      if (width >= fit.width && height >= fit.height) return
+      mutations.repairNodes((nodes) =>
+        nodes.map((node) => (node.id === id ? fitNodeToText(node as FlowchartNode) : node)),
       )
-    }, [
-      desiredHeight,
-      desiredWidth,
-      id,
-      measuredHeight,
-      measuredWidth,
-      mutations,
-      readOnly,
-      style?.height,
-      style?.width,
-    ])
+    }, [fit.height, fit.width, height, id, mutations, readOnly, width])
 
     return (
       <BaseNode
@@ -83,8 +47,8 @@ export const FlowchartNode = memo(
         className='group h-full w-full overflow-visible rounded-none border-0 bg-transparent shadow-none'
       >
         <NodeResizer
-          minWidth={minWidth}
-          minHeight={minHeight}
+          minWidth={fit.width}
+          minHeight={fit.height}
           keepAspectRatio={tool.preserveAspectRatio}
           isVisible={selected && !readOnly}
         />

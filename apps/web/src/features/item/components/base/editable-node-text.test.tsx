@@ -51,7 +51,7 @@ const setNodes = vi.fn((update: SetStateAction<Node[]>) => {
 const onCommit = vi.fn()
 
 const ui = (props: Partial<EditableNodeTextProps> = {}) => (
-  <DiagramMutationContext.Provider value={{ setNodes, setEdges: vi.fn() }}>
+  <DiagramMutationContext.Provider value={{ setNodes, repairNodes: vi.fn(), setEdges: vi.fn() }}>
     <EditableNodeText nodeId='n1' value='Hello' label='Node text' onCommit={onCommit} {...props} />
   </DiagramMutationContext.Provider>
 )

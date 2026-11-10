@@ -1,4 +1,4 @@
-import { syncCollection } from '@docgraph/common/diagram'
+import { isJsonEqual, syncCollection } from '@docgraph/common/diagram'
 import { useHocuspocusProvider } from '@hocuspocus/provider-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Transaction, YMapEvent } from 'yjs'
@@ -6,6 +6,19 @@ import { useDocumentReadOnly } from './use-document-read-only'
 
 /** How often pending local changes are flushed to the shared document. */
 const FLUSH_INTERVAL_MS = 50
+
+/**
+ * Transaction origin of every collection write. Undo history tracks only this origin, so it
+ * reverts only this client's edits and doesn't overwrite a peer's newer value; an item a peer
+ * deleted after this client edited it does come back. Outer transactions wrapping `replaceItems`
+ * must pass it too. Writing to the map directly with it would skip the local-state sync.
+ */
+export const COLLECTION_WRITE_ORIGIN = Symbol('yjs-collection-write')
+
+/** Transaction origin of `repairItems`: applied locally like a write, but not undoable. */
+const COLLECTION_REPAIR_ORIGIN = Symbol('yjs-collection-repair')
+
+const LOCAL_ORIGINS = new Set([COLLECTION_WRITE_ORIGIN, COLLECTION_REPAIR_ORIGIN])
 
 /**
  * React Flow bookkeeping that is local UI state, not document content. Writing
@@ -47,6 +60,7 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Ids whose local edits are withheld from the document (see `hold`).
   const heldRef = useRef<Set<string>>(new Set())
+  const [held, setHeld] = useState(false)
 
   /**
    * Cancels the scheduled trailing flush and restarts the throttle window.
@@ -72,17 +86,18 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
     // Only items whose persisted fields differ (deep JSON comparison) are set.
     // Volatile keys are stripped first: selecting or measuring a node is not a
     // document change and must not hit the wire.
-    provider.document.transact(() =>
-      syncCollection(provider.document.getMap<T>(name), pendingRef.current, persistable),
+    provider.document.transact(
+      () => syncCollection(provider.document.getMap<T>(name), pendingRef.current, persistable),
+      COLLECTION_WRITE_ORIGIN,
     )
   }, [markFlushed, name, provider, readOnly])
 
-  // Keep local state in sync with remote updates. Local-origin transactions
-  // are ignored because we already applied them optimistically.
+  // Keep local state in sync with the document. Our own writes are ignored because we
+  // already applied them optimistically; remote updates and undo/redo are mirrored.
   useEffect(() => {
     const map = provider.document.getMap<T>(name)
     const sync = (_event: YMapEvent<T>, transaction: Transaction) => {
-      if (transaction.local) return
+      if (LOCAL_ORIGINS.has(transaction.origin)) return
       const held = heldRef.current
       const local = new Map(pendingRef.current.map((item) => [item.id, item]))
       const values = Array.from(map.values()).map((item) => {
@@ -152,12 +167,13 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
    */
   const hold = (ids: string[]) => {
     heldRef.current = new Set(ids)
+    setHeld(ids.length > 0)
     if (!ids.length) flush()
   }
 
   /**
-   * Replaces the backing map synchronously. The caller can wrap several
-   * collection replacements in one outer Yjs transaction for atomic imports.
+   * Replaces the backing map synchronously. The caller can wrap several collection
+   * replacements in one outer Yjs transaction (origin `COLLECTION_WRITE_ORIGIN`) for atomic imports.
    * Items missing from `next` are deleted; unchanged items are skipped, so a
    * re-import doesn't overwrite a peer's concurrent edit of an untouched item.
    */
@@ -167,8 +183,47 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
     pendingRef.current = next
     setLocalItems(next)
 
-    syncCollection(provider.document.getMap<T>(name), next, persistable)
+    provider.document.transact(
+      () => syncCollection(provider.document.getMap<T>(name), next, persistable),
+      COLLECTION_WRITE_ORIGIN,
+    )
   }
 
-  return [items, setItems, hold, replaceItems] as const
+  /**
+   * Writes a derived fix (e.g. a node grown to fit its text) right away and outside the undo
+   * history, so it never counts as this client's edit. Pending edits are written first and stay
+   * undoable; held items change only locally until `hold([])` writes them.
+   *
+   * The fix takes over the item in the document, so undo/redo can no longer restore this
+   * client's earlier edit of it. Use it for what this client's own edits don't cause, such as
+   * a peer's change; make local edits valid as they are written (`normalizeNodes`) instead.
+   */
+  const repairItems = (update: (current: T[]) => T[]) => {
+    if (readOnly) return
+    const prev = pendingRef.current
+    const next = update(prev)
+    const nextIds = new Set(next.map((item) => item.id))
+    const removed = prev.filter((item) => !nextIds.has(item.id))
+    const prevById = new Map(prev.map((item) => [item.id, item]))
+    const changed = next.filter((item) => prevById.get(item.id) !== item)
+    if (!changed.length && !removed.length) return
+    if (timerRef.current) flush()
+
+    pendingRef.current = next
+    setLocalItems(next)
+
+    const held = heldRef.current
+    const map = provider.document.getMap<T>(name)
+    provider.document.transact(() => {
+      for (const item of removed) {
+        if (!held.has(item.id)) map.delete(item.id)
+      }
+      for (const item of changed) {
+        const value = persistable(item)
+        if (!held.has(item.id) && !isJsonEqual(map.get(item.id), value)) map.set(item.id, value)
+      }
+    }, COLLECTION_REPAIR_ORIGIN)
+  }
+
+  return { items, setItems, hold, held, replaceItems, repairItems, flush }
 }

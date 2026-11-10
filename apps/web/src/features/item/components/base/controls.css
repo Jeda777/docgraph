@@ -21,6 +21,15 @@
   svg {
     fill: currentColor;
   }
+
+  /* Lucide icons are stroked, not filled. */
+  svg.lucide {
+    fill: none;
+  }
+
+  &:disabled svg {
+    opacity: 0.4;
+  }
 }
 
 .react-flow__controls-button:last-child {
