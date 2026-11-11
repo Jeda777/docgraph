@@ -1,10 +1,15 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { type APIRequestContext, expect } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { BASE_URL } from '../env'
-import { createApiKey, revokeApiKey } from './api'
 
 type TextContent = { type: 'text'; text: string }
+
+/** What `get_diagram` answers with, limited to the fields specs look at. */
+export type DiagramGraph = {
+  nodes: { id: string; text: string; parentId?: string }[]
+  edges: unknown[]
+}
 
 /** Connects the official MCP client to `/mcp`, the way Claude Code or Cursor would. */
 export const connectMcp = async (apiKey: string) => {
@@ -13,21 +18,6 @@ export const connectMcp = async (apiKey: string) => {
     requestInit: { headers: { 'x-api-key': apiKey } },
   })
   await client.connect(transport)
-  return client
-}
-
-/**
- * Connects an agent with a new API key of the user behind `request`. `close()` also revokes the
- * key, so keys don't pile up in that user's Profile while other specs run.
- */
-export const connectAgent = async (request: APIRequestContext) => {
-  const { id, key } = await createApiKey(request)
-  const client = await connectMcp(key)
-  const disconnect = client.close.bind(client)
-  client.close = async () => {
-    await disconnect()
-    await revokeApiKey(request, id)
-  }
   return client
 }
 

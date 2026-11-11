@@ -31,6 +31,12 @@ export const waitForEditor = async (page: Page) => {
   await page.getByRole('button', { name: 'Menu', exact: true }).waitFor()
 }
 
+/** Opens an item and waits for its editor. */
+export const openItem = async (page: Page, itemId: string) => {
+  await page.goto(`/item/${itemId}`)
+  await waitForEditor(page)
+}
+
 /**
  * The React Flow wrapper of a canvas node, with the node's full size and position. Pools and
  * lanes are not nested in the DOM, so the frame of a pool holds only the pool itself.

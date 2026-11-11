@@ -1,17 +1,12 @@
 import type { Page } from '@playwright/test'
 import { createItem, createProject } from '../../lib/api'
-import { canvasTable, fitView, waitForEditor } from '../../lib/canvas'
-import { callTool, connectAgent } from '../../lib/mcp'
+import { canvasTable, fitView, openItem, waitForEditor } from '../../lib/canvas'
+import { callTool } from '../../lib/mcp'
 import { expect, test } from '../../lib/test'
 
 type DatabaseSchema = {
   tables: { name: string; description?: string; columns: { name: string; type: string }[] }[]
   relations: unknown[]
-}
-
-const openItem = async (page: Page, itemId: string) => {
-  await page.goto(`/item/${itemId}`)
-  await waitForEditor(page)
 }
 
 const relationsTab = async (page: Page) => {
@@ -66,31 +61,27 @@ test.describe('two users editing a database diagram', () => {
   test('a relation deleted while the other user edits it stays deleted', async ({
     page: admin,
     collaborator,
+    agent,
   }) => {
     const project = await createProject(admin.request)
     const item = await createItem(admin.request, project.id, 'DATABASE_DIAGRAM')
-    const agent = await connectAgent(admin.request)
-    try {
-      await callTool(agent, 'update_database_schema', {
-        itemId: item.id,
-        mode: 'replace',
-        tables: [
-          { name: 'users', columns: [{ name: 'id', type: 'uuid', primaryKey: true }] },
-          {
-            name: 'posts',
-            columns: [
-              { name: 'id', type: 'uuid', primaryKey: true },
-              { name: 'author_id', type: 'uuid' },
-            ],
-          },
-        ],
-        relations: [
-          { from: { table: 'users', column: 'id' }, to: { table: 'posts', column: 'author_id' } },
-        ],
-      })
-    } finally {
-      await agent.close()
-    }
+    await callTool(agent, 'update_database_schema', {
+      itemId: item.id,
+      mode: 'replace',
+      tables: [
+        { name: 'users', columns: [{ name: 'id', type: 'uuid', primaryKey: true }] },
+        {
+          name: 'posts',
+          columns: [
+            { name: 'id', type: 'uuid', primaryKey: true },
+            { name: 'author_id', type: 'uuid' },
+          ],
+        },
+      ],
+      relations: [
+        { from: { table: 'users', column: 'id' }, to: { table: 'posts', column: 'author_id' } },
+      ],
+    })
 
     await Promise.all([openItem(admin, item.id), openItem(collaborator, item.id)])
     const adminRelations = await relationsTab(admin)
@@ -102,7 +93,7 @@ test.describe('two users editing a database diagram', () => {
     await expect(adminRelations.getByRole('checkbox', { name: 'Nullable' })).toBeChecked()
 
     // ...and still has its card open, with a select open, when the admin deletes it
-    await collaboratorRelations.getByRole('combobox', { name: 'On delete' }).click()
+    await collaboratorRelations.getByLabel('On delete').click()
     await expect(collaborator.getByRole('listbox')).toBeVisible()
     await adminRelations.getByRole('button', { name: 'Delete relation' }).click()
 
@@ -125,81 +116,76 @@ test.describe('two users editing a database diagram', () => {
   })
 })
 
-test('an MCP agent changes a database diagram while it is open in the editor', async ({ page }) => {
+test('an MCP agent changes a database diagram while it is open in the editor', async ({
+  page,
+  agent,
+}) => {
   const project = await createProject(page.request)
   const item = await createItem(page.request, project.id, 'DATABASE_DIAGRAM')
-  const agent = await connectAgent(page.request)
-  try {
-    await callTool(agent, 'update_database_schema', {
-      itemId: item.id,
-      mode: 'replace',
-      tables: [{ name: 'users', columns: [{ name: 'id', type: 'uuid', primaryKey: true }] }],
-    })
-    await openItem(page, item.id)
-    await expect(canvasTable(page, 'users')).toContainText('id: uuid')
+  await callTool(agent, 'update_database_schema', {
+    itemId: item.id,
+    mode: 'replace',
+    tables: [{ name: 'users', columns: [{ name: 'id', type: 'uuid', primaryKey: true }] }],
+  })
+  await openItem(page, item.id)
+  await expect(canvasTable(page, 'users')).toContainText('id: uuid')
 
-    // The user describes the table; the agent reads the description from the server
-    await page
-      .getByRole('complementary')
-      .getByPlaceholder('Description')
-      .fill('Registered accounts')
-    await expect
-      .poll(async () => {
-        const schema = await callTool<DatabaseSchema>(agent, 'get_database_schema', {
-          itemId: item.id,
-        })
-        return schema.tables.find((table) => table.name === 'users')?.description
+  // The user describes the table; the agent reads the description from the server
+  await page.getByRole('complementary').getByPlaceholder('Description').fill('Registered accounts')
+  await expect
+    .poll(async () => {
+      const schema = await callTool<DatabaseSchema>(agent, 'get_database_schema', {
+        itemId: item.id,
       })
-      .toBe('Registered accounts')
-
-    // The agent redefines that table and adds another one, while the editor stays open
-    await callTool(agent, 'update_database_schema', {
-      itemId: item.id,
-      mode: 'merge',
-      tables: [
-        {
-          name: 'users',
-          columns: [
-            { name: 'id', type: 'uuid', primaryKey: true },
-            { name: 'email', type: 'varchar(255)', unique: true },
-          ],
-        },
-        {
-          name: 'posts',
-          columns: [
-            { name: 'id', type: 'uuid', primaryKey: true },
-            { name: 'author_id', type: 'uuid' },
-          ],
-        },
-      ],
-      relations: [
-        { from: { table: 'users', column: 'id' }, to: { table: 'posts', column: 'author_id' } },
-      ],
+      return schema.tables.find((table) => table.name === 'users')?.description
     })
+    .toBe('Registered accounts')
 
-    // The editor shows it without a reload, and keeps the user's description. The first check
-    // waits for the update; the new table may be off-screen until the view is fitted.
-    await expect(canvasTable(page, 'users')).toContainText('email: varchar(255)')
-    await fitView(page)
-    await expect(canvasTable(page, 'users')).toContainText('email: varchar(255)')
-    await expect(canvasTable(page, 'users')).toContainText('Registered accounts')
-    await expect(canvasTable(page, 'posts')).toContainText('author_id: uuid')
-    await expect(page.locator('.react-flow__edge')).toHaveCount(1)
+  // The agent redefines that table and adds another one, while the editor stays open
+  await callTool(agent, 'update_database_schema', {
+    itemId: item.id,
+    mode: 'merge',
+    tables: [
+      {
+        name: 'users',
+        columns: [
+          { name: 'id', type: 'uuid', primaryKey: true },
+          { name: 'email', type: 'varchar(255)', unique: true },
+        ],
+      },
+      {
+        name: 'posts',
+        columns: [
+          { name: 'id', type: 'uuid', primaryKey: true },
+          { name: 'author_id', type: 'uuid' },
+        ],
+      },
+    ],
+    relations: [
+      { from: { table: 'users', column: 'id' }, to: { table: 'posts', column: 'author_id' } },
+    ],
+  })
 
-    // An edit made in the editor afterwards reaches the agent too
-    const postsName = page.getByRole('complementary').getByLabel('Table name').nth(1)
-    await expect(postsName).toHaveValue('posts')
-    await postsName.fill('articles')
-    await expect(canvasTable(page, 'articles')).toBeVisible()
-    await expect
-      .poll(async () => {
-        const schema = await callTool<DatabaseSchema>(agent, 'get_database_schema', {
-          itemId: item.id,
-        })
-        return schema.tables.map((table) => table.name).sort()
+  // The editor shows it without a reload, and keeps the user's description. The first check
+  // waits for the update; the new table may be off-screen until the view is fitted.
+  await expect(canvasTable(page, 'users')).toContainText('email: varchar(255)')
+  await fitView(page)
+  await expect(canvasTable(page, 'users')).toContainText('email: varchar(255)')
+  await expect(canvasTable(page, 'users')).toContainText('Registered accounts')
+  await expect(canvasTable(page, 'posts')).toContainText('author_id: uuid')
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1)
+
+  // An edit made in the editor afterwards reaches the agent too
+  const postsName = page.getByRole('complementary').getByLabel('Table name').nth(1)
+  await expect(postsName).toHaveValue('posts')
+  await postsName.fill('articles')
+  await expect(canvasTable(page, 'articles')).toBeVisible()
+  await expect
+    .poll(async () => {
+      const schema = await callTool<DatabaseSchema>(agent, 'get_database_schema', {
+        itemId: item.id,
       })
-      .toEqual(['articles', 'users'])
-  } finally {
-    await agent.close()
-  }
+      return schema.tables.map((table) => table.name).sort()
+    })
+    .toEqual(['articles', 'users'])
 })
