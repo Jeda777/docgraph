@@ -16,7 +16,7 @@ export const ProfileDialog = ({ isOpen, setOpen }: ProfileDialogProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => setOpen(open)}>
-      <DialogContent>
+      <DialogContent className='max-h-[calc(100dvh-2rem)] overflow-y-auto'>
         <DialogHeader>
           <DialogTitle>Profile</DialogTitle>
         </DialogHeader>
