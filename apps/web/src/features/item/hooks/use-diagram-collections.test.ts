@@ -68,6 +68,15 @@ const renderCollections = (options: Partial<Options> = {}) =>
 
 const flush = () => act(() => vi.runAllTimers())
 
+/** Apply an edit made by a peer: a second doc whose update arrives as non-local. */
+const remote = (edit: (peer: Y.Doc) => void) => {
+  const peer = new Y.Doc()
+  Y.applyUpdate(peer, Y.encodeStateAsUpdate(provider.document))
+  const before = Y.encodeStateVector(peer)
+  peer.transact(() => edit(peer))
+  act(() => Y.applyUpdate(provider.document, Y.encodeStateAsUpdate(peer, before)))
+}
+
 /** Drops the React Flow UI state the hook keeps locally, for comparing ids only. */
 const ids = (items: readonly { id: string }[]) => items.map((item) => item.id)
 
@@ -310,6 +319,8 @@ describe('useDiagramCollections', () => {
   describe('connecting edges', () => {
     const connection = { source: 'a', target: 'b', sourceHandle: null, targetHandle: null }
 
+    beforeEach(() => seed({ nodes: [node('a'), node('b'), node('c')] }))
+
     it('creates an edge of the configured type with data from createEdgeData', () => {
       const createEdgeData = vi.fn((type: string) => ({ kind: `created-${type}` }))
       const { result } = renderCollections({ edgeType: 'message', createEdgeData })
@@ -371,6 +382,120 @@ describe('useDiagramCollections', () => {
       expect(provider.awareness.setLocalStateField).toHaveBeenLastCalledWith('draggingNodeId', null)
       expect(stored(DIAGRAM_MAPS.nodes).a).toMatchObject({ position: { x: 10, y: 0 } })
       expect(stored(DIAGRAM_MAPS.areas).z).toMatchObject({ position: { x: 20, y: 0 } })
+    })
+  })
+
+  describe('local edits not written yet during a peer update', () => {
+    it('drops a new edge to a node the peer deleted', () => {
+      seed({ nodes: [node('a'), node('b'), node('x')], edges: [edge('ab', 'a', 'b')] })
+      const { result } = renderCollections()
+      // The first write goes out at once; the next one waits for the throttle window
+      act(() => result.current.setEdges((current) => [...current, edge('bx', 'b', 'x')]))
+      act(() => result.current.setEdges((current) => [...current, edge('ax', 'a', 'x')]))
+
+      remote((peer) => {
+        peer.getMap(DIAGRAM_MAPS.nodes).delete('x')
+        peer.getMap(DIAGRAM_MAPS.edges).delete('bx')
+      })
+      flush()
+
+      expect(ids(result.current.edges)).toEqual(['ab'])
+      expect(Object.keys(stored(DIAGRAM_MAPS.edges))).toEqual(['ab'])
+    })
+
+    it('reverts an edge reconnected to a node the peer deleted', () => {
+      seed({ nodes: [node('a'), node('b'), node('x')], edges: [edge('ab', 'a', 'b')] })
+      const { result } = renderCollections()
+      act(() => result.current.setEdges((current) => [...current, edge('ba', 'b', 'a')]))
+      act(() =>
+        result.current.setEdges((current) =>
+          current.map((item) => (item.id === 'ab' ? { ...item, target: 'x' } : item)),
+        ),
+      )
+
+      remote((peer) => peer.getMap(DIAGRAM_MAPS.nodes).delete('x'))
+      flush()
+
+      expect(stored(DIAGRAM_MAPS.edges).ab).toMatchObject({ source: 'a', target: 'b' })
+      expect(result.current.edges.find((item) => item.id === 'ab')).toMatchObject({ target: 'b' })
+    })
+
+    it('drops a new child of a parent the peer deleted', () => {
+      seed({ nodes: [node('a'), node('pool')] })
+      const { result } = renderCollections()
+      act(() => result.current.setNodes((current) => [...current, node('b')]))
+      act(() =>
+        result.current.setNodes((current) => [...current, { ...node('child'), parentId: 'pool' }]),
+      )
+
+      remote((peer) => peer.getMap(DIAGRAM_MAPS.nodes).delete('pool'))
+      flush()
+
+      expect(ids(result.current.nodes)).toEqual(['a', 'b'])
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b'])
+    })
+
+    it('drops a new child of a new lane whose pool the peer deleted', () => {
+      seed({ nodes: [node('a'), node('pool')] })
+      const { result } = renderCollections()
+      act(() => result.current.setNodes((current) => [...current, node('b')]))
+      act(() =>
+        result.current.setNodes((current) => [
+          ...current,
+          { ...node('lane'), parentId: 'pool' },
+          { ...node('child'), parentId: 'lane' },
+        ]),
+      )
+
+      remote((peer) => peer.getMap(DIAGRAM_MAPS.nodes).delete('pool'))
+      const written = new Set<string>()
+      docMap(DIAGRAM_MAPS.nodes).observe((event) => {
+        for (const key of event.keysChanged) written.add(key)
+      })
+      flush()
+
+      expect(ids(result.current.nodes)).toEqual(['a', 'b'])
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b'])
+      // Rejected before the write, not cleaned up after it
+      expect(written).toEqual(new Set())
+    })
+
+    it('removes an edge written before its new node was dropped', () => {
+      seed({ nodes: [node('a'), node('pool')] })
+      const { result } = renderCollections()
+      act(() => result.current.setNodes((current) => [...current, node('b')]))
+      act(() =>
+        result.current.setNodes((current) => [...current, { ...node('child'), parentId: 'pool' }]),
+      )
+      // The edge collection has its own throttle, so this edge is written right away
+      act(() => result.current.setEdges((current) => [...current, edge('ac', 'a', 'child')]))
+      expect(Object.keys(stored(DIAGRAM_MAPS.edges))).toEqual(['ac'])
+
+      remote((peer) => peer.getMap(DIAGRAM_MAPS.nodes).delete('pool'))
+      flush()
+
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b'])
+      expect(stored(DIAGRAM_MAPS.edges)).toEqual({})
+      expect(result.current.edges).toEqual([])
+      expect(result.current.history.canUndo).toBe(true)
+    })
+
+    it('keeps a new edge to a node created here and not written yet', () => {
+      seed({ nodes: [node('a'), node('b')], edges: [edge('ab', 'a', 'b')] })
+      const { result } = renderCollections()
+      act(() => result.current.setNodes((current) => [...current, node('c')]))
+      act(() => result.current.setEdges((current) => [...current, edge('bc', 'b', 'c')]))
+      act(() => result.current.setNodes((current) => [...current, node('n')]))
+      act(() => result.current.setEdges((current) => [...current, edge('an', 'a', 'n')]))
+
+      remote((peer) => {
+        peer.getMap<TestNode>(DIAGRAM_MAPS.nodes).set('a', node('a', 5))
+        peer.getMap<TestEdge>(DIAGRAM_MAPS.edges).set('ab', { ...edge('ab', 'a', 'b'), label: 'x' })
+      })
+      flush()
+
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b', 'c', 'n'])
+      expect(Object.keys(stored(DIAGRAM_MAPS.edges)).sort()).toEqual(['ab', 'an', 'bc'])
     })
   })
 
