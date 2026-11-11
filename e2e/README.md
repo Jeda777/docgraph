@@ -63,8 +63,9 @@ pnpm --filter e2e report               # open the last HTML report
   admin session too, so pass the same empty `storageState` for a second, signed-out user.
 - Need a second participant on the same item? Use the `collaborator` fixture from `lib/test.ts`:
   a page of a new regular user with their own session and browser context.
-- Drive the `/mcp` endpoint with `connectMcp` and `callTool` (`lib/mcp.ts`) and a key from
-  `createApiKey` (`lib/api.ts`). The canvas renders only the nodes in view, so after an agent or
+- Drive the `/mcp` endpoint with `connectAgent` and `callTool` (`lib/mcp.ts`). `connectAgent`
+  creates its own API key and revokes it on `close()`, so specs running in parallel don't fill the
+  admin's Profile with keys. The canvas renders only the nodes in view, so after an agent or
   a peer adds nodes, `fitView` (`lib/canvas.ts`) before looking for them.
 - Need a regular user? `createUser` (`lib/api.ts`) invites one and sets their password through the
   email code reset; sign them in on a fresh context with `signIn`. Don't change the admin's

@@ -1,7 +1,8 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import { expect } from '@playwright/test'
+import { type APIRequestContext, expect } from '@playwright/test'
 import { BASE_URL } from '../env'
+import { createApiKey, revokeApiKey } from './api'
 
 type TextContent = { type: 'text'; text: string }
 
@@ -12,6 +13,21 @@ export const connectMcp = async (apiKey: string) => {
     requestInit: { headers: { 'x-api-key': apiKey } },
   })
   await client.connect(transport)
+  return client
+}
+
+/**
+ * Connects an agent with a new API key of the user behind `request`. `close()` also revokes the
+ * key, so keys don't pile up in that user's Profile while other specs run.
+ */
+export const connectAgent = async (request: APIRequestContext) => {
+  const { id, key } = await createApiKey(request)
+  const client = await connectMcp(key)
+  const disconnect = client.close.bind(client)
+  client.close = async () => {
+    await disconnect()
+    await revokeApiKey(request, id)
+  }
   return client
 }
 

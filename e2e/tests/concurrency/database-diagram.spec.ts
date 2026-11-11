@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test'
-import { createApiKey, createItem, createProject } from '../../lib/api'
+import { createItem, createProject } from '../../lib/api'
 import { canvasTable, fitView, waitForEditor } from '../../lib/canvas'
-import { callTool, connectMcp } from '../../lib/mcp'
+import { callTool, connectAgent } from '../../lib/mcp'
 import { expect, test } from '../../lib/test'
 
 type DatabaseSchema = {
@@ -69,7 +69,7 @@ test.describe('two users editing a database diagram', () => {
   }) => {
     const project = await createProject(admin.request)
     const item = await createItem(admin.request, project.id, 'DATABASE_DIAGRAM')
-    const agent = await connectMcp(await createApiKey(admin.request))
+    const agent = await connectAgent(admin.request)
     try {
       await callTool(agent, 'update_database_schema', {
         itemId: item.id,
@@ -101,9 +101,8 @@ test.describe('two users editing a database diagram', () => {
     await collaboratorRelations.getByRole('checkbox', { name: 'Nullable' }).click()
     await expect(adminRelations.getByRole('checkbox', { name: 'Nullable' })).toBeChecked()
 
-    // ...and is still editing it, with a select open, when the admin deletes it
-    // The card's selects have no accessible name: relation kind, On delete, On update
-    await collaboratorRelations.getByRole('combobox').nth(1).click()
+    // ...and still has its card open, with a select open, when the admin deletes it
+    await collaboratorRelations.getByRole('combobox', { name: 'On delete' }).click()
     await expect(collaborator.getByRole('listbox')).toBeVisible()
     await adminRelations.getByRole('button', { name: 'Delete relation' }).click()
 
@@ -114,7 +113,8 @@ test.describe('two users editing a database diagram', () => {
     }
     await expect(collaborator.getByRole('listbox')).toHaveCount(0)
 
-    // The open edit did not bring the relation back, and the tables are untouched
+    // The open card did not bring the relation back, and the tables are untouched. An edit not
+    // written yet when the delete arrives is covered by the `useYjsCollection` unit tests.
     for (const user of [admin, collaborator]) {
       await user.reload()
       await waitForEditor(user)
@@ -128,7 +128,7 @@ test.describe('two users editing a database diagram', () => {
 test('an MCP agent changes a database diagram while it is open in the editor', async ({ page }) => {
   const project = await createProject(page.request)
   const item = await createItem(page.request, project.id, 'DATABASE_DIAGRAM')
-  const agent = await connectMcp(await createApiKey(page.request))
+  const agent = await connectAgent(page.request)
   try {
     await callTool(agent, 'update_database_schema', {
       itemId: item.id,

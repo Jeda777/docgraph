@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { BASE_URL } from '../env'
 import { createItem, createProject, uniqueName } from '../lib/api'
 import { canvasTable, waitForEditor } from '../lib/canvas'
@@ -31,8 +31,9 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
     `--transport http docgraph ${BASE_URL}/mcp --header "x-api-key: ${apiKey}"`,
   )
   await profile.getByRole('button', { name: 'Done' }).click()
-  await expect(profile.getByText(keyName)).toBeVisible()
-  await expect(profile.getByText('Last used never')).toBeVisible()
+  // Other specs create keys for the same user in parallel, so look at this key's row only
+  const keyRow = (dialog: Locator) => dialog.getByRole('listitem').filter({ hasText: keyName })
+  await expect(keyRow(profile)).toContainText('Last used never')
   await page.keyboard.press('Escape')
 
   const client = await connectMcp(apiKey)
@@ -101,8 +102,8 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
 
   await page.goto('/')
   profile = await openProfile(page)
-  await expect(profile.getByText(keyName)).toBeVisible()
-  await expect(profile.getByText('Last used never')).toHaveCount(0)
+  await expect(keyRow(profile)).toBeVisible()
+  await expect(keyRow(profile)).not.toContainText('Last used never')
 
   // A revoked key stops working right away
   await profile.getByRole('button', { name: `Revoke ${keyName}` }).click()

@@ -1,6 +1,6 @@
-import { createApiKey, createItem, createProject } from '../../lib/api'
+import { createItem, createProject } from '../../lib/api'
 import { canvasNode, editNodeText, fitView, waitForEditor } from '../../lib/canvas'
-import { callTool, connectMcp } from '../../lib/mcp'
+import { callTool, connectAgent } from '../../lib/mcp'
 import { expect, test } from '../../lib/test'
 
 type DiagramGraph = { nodes: { id: string; text: string }[]; edges: unknown[] }
@@ -8,7 +8,7 @@ type DiagramGraph = { nodes: { id: string; text: string }[]; edges: unknown[] }
 test('an MCP agent changes a flowchart while a user edits it', async ({ page }) => {
   const project = await createProject(page.request)
   const item = await createItem(page.request, project.id, 'FLOWCHART')
-  const agent = await connectMcp(await createApiKey(page.request))
+  const agent = await connectAgent(page.request)
   try {
     await callTool(agent, 'update_diagram', {
       itemId: item.id,

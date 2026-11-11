@@ -53,28 +53,29 @@ export const SidebarRelation = ({ edge, nodes, setEdges, readOnly }: SidebarRela
       readOnly={readOnly}
     >
       <div className='grid grid-cols-2 gap-2'>
-        {(['onDelete', 'onUpdate'] as const).map((field) => (
-          <div key={field} className='flex flex-col gap-1'>
-            <Label className='text-xs text-muted-foreground'>
-              {field === 'onDelete' ? 'On delete' : 'On update'}
-            </Label>
-            <Select
-              value={data[field]}
-              onValueChange={(v) => update({ [field]: v as ReferentialAction })}
-            >
-              <SelectTrigger className='w-full' disabled={readOnly}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REFERENTIAL_ACTIONS.map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
+        {(['onDelete', 'onUpdate'] as const).map((field) => {
+          const label = field === 'onDelete' ? 'On delete' : 'On update'
+          return (
+            <div key={field} className='flex flex-col gap-1'>
+              <Label className='text-xs text-muted-foreground'>{label}</Label>
+              <Select
+                value={data[field]}
+                onValueChange={(v) => update({ [field]: v as ReferentialAction })}
+              >
+                <SelectTrigger className='w-full' aria-label={label} disabled={readOnly}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REFERENTIAL_ACTIONS.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        })}
       </div>
 
       <Label className='flex items-center gap-2 text-xs'>
