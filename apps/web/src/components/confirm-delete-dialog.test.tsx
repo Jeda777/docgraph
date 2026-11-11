@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ConfirmDeleteDialog } from './confirm-delete-dialog'
+import { Dialog, DialogContent, DialogTitle } from './ui/dialog'
 
 afterEach(cleanup)
 
@@ -67,5 +68,18 @@ describe('ConfirmDeleteDialog', () => {
       />,
     )
     expect(screen.getByRole('button', { name: 'Delete' })).toBeDisabled()
+  })
+
+  it('renders its backdrop when opened inside another dialog', () => {
+    render(
+      <Dialog open>
+        <DialogContent>
+          <DialogTitle>Parent</DialogTitle>
+          <ConfirmDeleteDialog open onOpenChange={() => {}} description='d' onDelete={() => {}} />
+        </DialogContent>
+      </Dialog>,
+    )
+
+    expect(document.querySelector('[data-slot="alert-dialog-overlay"]')).toBeInTheDocument()
   })
 })
