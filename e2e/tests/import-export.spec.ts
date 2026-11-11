@@ -1,8 +1,7 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Page } from '@playwright/test'
 import { createItem, createProject } from '../lib/api'
-import { canvasTable, waitForEditor } from '../lib/canvas'
+import { canvasTable, openItem, waitForEditor } from '../lib/canvas'
 import { exportItem, importFile } from '../lib/item-menu'
 import { expect, test } from '../lib/test'
 
@@ -15,11 +14,6 @@ type DiagramExport = {
   nodes: { type: string; data: { name: string } }[]
   edges: unknown[]
   areas: unknown[]
-}
-
-const openItem = async (page: Page, itemId: string) => {
-  await page.goto(`/item/${itemId}`)
-  await waitForEditor(page)
 }
 
 test('a database diagram round-trips through JSON, DocGraph and image exports', async ({

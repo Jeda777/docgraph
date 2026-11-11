@@ -5,6 +5,7 @@ import {
   RELATION_TYPES,
   type ReferentialAction,
 } from '@docgraph/common/schemas'
+import { useId } from 'react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import {
@@ -40,6 +41,7 @@ export const SidebarRelation = ({ edge, nodes, setEdges, readOnly }: SidebarRela
     setEdges,
     DATABASE_DIAGRAM_DEFAULT_EDGE_DATA,
   )
+  const selectId = useId()
 
   return (
     <SidebarRelationCard
@@ -53,28 +55,31 @@ export const SidebarRelation = ({ edge, nodes, setEdges, readOnly }: SidebarRela
       readOnly={readOnly}
     >
       <div className='grid grid-cols-2 gap-2'>
-        {(['onDelete', 'onUpdate'] as const).map((field) => (
-          <div key={field} className='flex flex-col gap-1'>
-            <Label className='text-xs text-muted-foreground'>
-              {field === 'onDelete' ? 'On delete' : 'On update'}
-            </Label>
-            <Select
-              value={data[field]}
-              onValueChange={(v) => update({ [field]: v as ReferentialAction })}
-            >
-              <SelectTrigger className='w-full' disabled={readOnly}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {REFERENTIAL_ACTIONS.map((a) => (
-                  <SelectItem key={a} value={a}>
-                    {a}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ))}
+        {(['onDelete', 'onUpdate'] as const).map((field) => {
+          const id = `${selectId}-${field}`
+          return (
+            <div key={field} className='flex flex-col gap-1'>
+              <Label htmlFor={id} className='text-xs text-muted-foreground'>
+                {field === 'onDelete' ? 'On delete' : 'On update'}
+              </Label>
+              <Select
+                value={data[field]}
+                onValueChange={(v) => update({ [field]: v as ReferentialAction })}
+              >
+                <SelectTrigger id={id} className='w-full' disabled={readOnly}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {REFERENTIAL_ACTIONS.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )
+        })}
       </div>
 
       <Label className='flex items-center gap-2 text-xs'>

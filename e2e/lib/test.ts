@@ -1,4 +1,7 @@
-import { type BrowserContext, test as base, expect } from '@playwright/test'
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { type BrowserContext, test as base, expect, type Page } from '@playwright/test'
+import { createApiKey, createUser, revokeApiKey, signIn } from './api'
+import { connectMcp } from './mcp'
 
 export { expect }
 
@@ -10,7 +13,11 @@ const isCspViolation = (text: string) => text.includes('Content Security Policy'
  * A blocked request often fails quietly (e.g. an image export that never downloads), so the
  * console is the only place it shows up. Also watches contexts opened with `browser.newContext`.
  */
-export const test = base.extend<{ failOnCspViolations: undefined }>({
+export const test = base.extend<{
+  failOnCspViolations: undefined
+  collaborator: Page
+  agent: Client
+}>({
   failOnCspViolations: [
     async ({ context, browser }, use) => {
       const violations: string[] = []
@@ -40,4 +47,33 @@ export const test = base.extend<{ failOnCspViolations: undefined }>({
     },
     { auto: true },
   ],
+  /**
+   * A page of a second, regular user with their own session and browser context, so they join
+   * an item as a separate participant. The user is created on first use, which takes a moment.
+   */
+  collaborator: async ({ browser, page, failOnCspViolations }, use) => {
+    void failOnCspViolations // set up first, so it watches the new context too
+    const user = await createUser(page.request)
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    await signIn(context.request, user)
+    await use(await context.newPage())
+    await context.close()
+  },
+  /**
+   * An MCP client connected with a new API key of the user behind `page`. The key is revoked
+   * after the test, even when it failed, so keys don't pile up in that user's Profile.
+   */
+  agent: async ({ page }, use) => {
+    const { id, key } = await createApiKey(page.request)
+    try {
+      const client = await connectMcp(key)
+      try {
+        await use(client)
+      } finally {
+        await client.close()
+      }
+    } finally {
+      await revokeApiKey(page.request, id)
+    }
+  },
 })

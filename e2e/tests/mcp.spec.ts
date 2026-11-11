@@ -1,31 +1,9 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { BASE_URL } from '../env'
 import { createItem, createProject, uniqueName } from '../lib/api'
 import { canvasTable, waitForEditor } from '../lib/canvas'
+import { callTool, connectMcp } from '../lib/mcp'
 import { expect, test } from '../lib/test'
-
-type TextContent = { type: 'text'; text: string }
-
-/** Connects the official MCP client to `/mcp`, the way Claude Code or Cursor would. */
-const connectMcp = async (apiKey: string) => {
-  const client = new Client({ name: 'docgraph-e2e', version: '0.0.1' })
-  const transport = new StreamableHTTPClientTransport(new URL('/mcp', BASE_URL), {
-    requestInit: { headers: { 'x-api-key': apiKey } },
-  })
-  await client.connect(transport)
-  return client
-}
-
-/** Calls a tool and parses the JSON text every DocGraph tool answers with. */
-const callTool = async <T>(client: Client, name: string, args: Record<string, unknown> = {}) => {
-  const result = await client.callTool({ name, arguments: args })
-  const [content] = result.content as (TextContent | undefined)[]
-  expect(result.isError, content?.text).toBeFalsy()
-  expect(content?.text, `${name} answered without text content`).toEqual(expect.any(String))
-  return JSON.parse(content?.text ?? '') as T
-}
 
 const openProfile = async (page: Page) => {
   await page.getByRole('button', { name: 'Account menu' }).click()
@@ -53,8 +31,9 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
     `--transport http docgraph ${BASE_URL}/mcp --header "x-api-key: ${apiKey}"`,
   )
   await profile.getByRole('button', { name: 'Done' }).click()
-  await expect(profile.getByText(keyName)).toBeVisible()
-  await expect(profile.getByText('Last used never')).toBeVisible()
+  // Other specs create keys for the same user in parallel, so look at this key's row only
+  const keyRow = (dialog: Locator) => dialog.getByRole('listitem').filter({ hasText: keyName })
+  await expect(keyRow(profile)).toContainText('Last used never')
   await page.keyboard.press('Escape')
 
   const client = await connectMcp(apiKey)
@@ -123,8 +102,8 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
 
   await page.goto('/')
   profile = await openProfile(page)
-  await expect(profile.getByText(keyName)).toBeVisible()
-  await expect(profile.getByText('Last used never')).toHaveCount(0)
+  await expect(keyRow(profile)).toBeVisible()
+  await expect(keyRow(profile)).not.toContainText('Last used never')
 
   // A revoked key stops working right away
   await profile.getByRole('button', { name: `Revoke ${keyName}` }).click()

@@ -30,3 +30,23 @@ export const editNodeText = async (page: Page, nodeName: string, text: string) =
 export const waitForEditor = async (page: Page) => {
   await page.getByRole('button', { name: 'Menu', exact: true }).waitFor()
 }
+
+/** Opens an item and waits for its editor. */
+export const openItem = async (page: Page, itemId: string) => {
+  await page.goto(`/item/${itemId}`)
+  await waitForEditor(page)
+}
+
+/**
+ * The React Flow wrapper of a canvas node, with the node's full size and position. Pools and
+ * lanes are not nested in the DOM, so the frame of a pool holds only the pool itself.
+ */
+export const canvasNodeFrame = (page: Page, name: string) =>
+  page.locator('.react-flow__node').filter({ has: page.getByRole('button', { name, exact: true }) })
+
+/**
+ * Fits the whole diagram into the viewport, as a user does to find nodes added elsewhere. The
+ * canvas renders only the nodes in view, so nodes a peer or an agent added off-screen are not
+ * on the page until then.
+ */
+export const fitView = (page: Page) => page.getByRole('button', { name: 'Fit View' }).click()

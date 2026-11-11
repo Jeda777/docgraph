@@ -49,6 +49,7 @@ export const SidebarRelationCard = <Kind extends string>({
           variant='destructive'
           size='icon-sm'
           className='ml-auto shrink-0'
+          aria-label='Delete relation'
           onClick={onDelete}
           disabled={readOnly}
         >
@@ -63,7 +64,7 @@ export const SidebarRelationCard = <Kind extends string>({
             if (value) onKindChange(value as Kind)
           }}
         >
-          <SelectTrigger className='w-full' disabled={readOnly}>
+          <SelectTrigger className='w-full' aria-label='Relation kind' disabled={readOnly}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
