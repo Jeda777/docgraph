@@ -20,7 +20,8 @@ export type ConfirmDeleteDialogProps = {
 
 /**
  * Composed by hand instead of `AlertDialogContent` because Base UI skips the backdrop
- * of a dialog opened inside another one unless it gets `forceRender`.
+ * of a dialog opened inside another one unless it gets `forceRender`, and an alert dialog
+ * never closes on a backdrop click by itself.
  * Popup classes mirror `AlertDialogContent` — keep them in sync when `ui/` is regenerated.
  */
 export const ConfirmDeleteDialog = ({
@@ -33,7 +34,7 @@ export const ConfirmDeleteDialog = ({
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogPortal>
-        <AlertDialogOverlay forceRender />
+        <AlertDialogOverlay forceRender onClick={() => onOpenChange(false)} />
         <AlertDialogPrimitive.Popup
           data-slot='alert-dialog-content'
           data-size='default'

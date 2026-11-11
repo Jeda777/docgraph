@@ -82,4 +82,30 @@ describe('ConfirmDeleteDialog', () => {
 
     expect(document.querySelector('[data-slot="alert-dialog-overlay"]')).toBeInTheDocument()
   })
+
+  it('closes on a backdrop click without closing the parent dialog', () => {
+    const onOpenChange = vi.fn()
+    const onParentOpenChange = vi.fn()
+    render(
+      <Dialog open onOpenChange={onParentOpenChange}>
+        <DialogContent>
+          <DialogTitle>Parent</DialogTitle>
+          <ConfirmDeleteDialog
+            open
+            onOpenChange={onOpenChange}
+            description='d'
+            onDelete={() => {}}
+          />
+        </DialogContent>
+      </Dialog>,
+    )
+
+    const backdrop = document.querySelector('[data-slot="alert-dialog-overlay"]') as HTMLElement
+    fireEvent.pointerDown(backdrop)
+    fireEvent.mouseDown(backdrop)
+    fireEvent.click(backdrop)
+
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onParentOpenChange).not.toHaveBeenCalled()
+  })
 })
