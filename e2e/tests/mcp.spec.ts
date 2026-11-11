@@ -1,31 +1,9 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js'
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import type { Page } from '@playwright/test'
 import { BASE_URL } from '../env'
 import { createItem, createProject, uniqueName } from '../lib/api'
 import { canvasTable, waitForEditor } from '../lib/canvas'
+import { callTool, connectMcp } from '../lib/mcp'
 import { expect, test } from '../lib/test'
-
-type TextContent = { type: 'text'; text: string }
-
-/** Connects the official MCP client to `/mcp`, the way Claude Code or Cursor would. */
-const connectMcp = async (apiKey: string) => {
-  const client = new Client({ name: 'docgraph-e2e', version: '0.0.1' })
-  const transport = new StreamableHTTPClientTransport(new URL('/mcp', BASE_URL), {
-    requestInit: { headers: { 'x-api-key': apiKey } },
-  })
-  await client.connect(transport)
-  return client
-}
-
-/** Calls a tool and parses the JSON text every DocGraph tool answers with. */
-const callTool = async <T>(client: Client, name: string, args: Record<string, unknown> = {}) => {
-  const result = await client.callTool({ name, arguments: args })
-  const [content] = result.content as (TextContent | undefined)[]
-  expect(result.isError, content?.text).toBeFalsy()
-  expect(content?.text, `${name} answered without text content`).toEqual(expect.any(String))
-  return JSON.parse(content?.text ?? '') as T
-}
 
 const openProfile = async (page: Page) => {
   await page.getByRole('button', { name: 'Account menu' }).click()

@@ -49,6 +49,7 @@ export const SidebarRelationCard = <Kind extends string>({
           variant='destructive'
           size='icon-sm'
           className='ml-auto shrink-0'
+          aria-label='Delete relation'
           onClick={onDelete}
           disabled={readOnly}
         >

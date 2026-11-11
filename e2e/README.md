@@ -10,6 +10,9 @@ emails. Both run in [Testcontainers](https://testcontainers.com) started by `glo
 | `tests/otp-login.spec.ts` | Login with a one-time code read from Mailpit, a rejected wrong code, the redirect back to a deep link, no account enumeration |
 | `tests/diagram.spec.ts` | Creating a project and a flowchart through the UI, adding shapes, editing node text, reopening the item in a new tab and reloading it right after an edit |
 | `tests/collaboration.spec.ts` | Two tabs on one item: flowchart nodes, node text and deletions, and document text sync live both ways; diagram undo/redo leaves the other tab's edits in place |
+| `tests/concurrency/database-diagram.spec.ts` | Two users edit the same table and both end up with every change; a relation deleted while the other user is editing it stays deleted; an MCP agent redefines a table and adds another while the diagram is open, keeping the user's description |
+| `tests/concurrency/business-process.spec.ts` | A lane added by one user while another edits an activity inside a lane keeps both changes and the activity in its lane; an MCP agent adds an activity to a lane and renames a lane while the user edits the process |
+| `tests/concurrency/flowchart.spec.ts` | An MCP agent adds, connects and removes flowchart nodes while the user edits the flowchart, without losing the user's edit |
 | `tests/password.spec.ts` | Password login, a rejected wrong password, logout, and setting a new password with a code from the email |
 | `tests/invitation.spec.ts` | The admin invites a user in the Users dialog (a duplicate is refused), the invited user opens the link from the email and signs in with a code, and sees no admin features |
 | `tests/user-management.spec.ts` | The admin's own row has no actions; promoting a user shows them the admin features, demoting removes them; deleting the user signs them out and their API key gets 401 |
@@ -58,6 +61,11 @@ pnpm --filter e2e report               # open the last HTML report
 - Specs start signed in as the admin. Opt out with
   `test.use({ storageState: { cookies: [], origins: [] } })`. `browser.newContext()` inherits the
   admin session too, so pass the same empty `storageState` for a second, signed-out user.
+- Need a second participant on the same item? Use the `collaborator` fixture from `lib/test.ts`:
+  a page of a new regular user with their own session and browser context.
+- Drive the `/mcp` endpoint with `connectMcp` and `callTool` (`lib/mcp.ts`) and a key from
+  `createApiKey` (`lib/api.ts`). The canvas renders only the nodes in view, so after an agent or
+  a peer adds nodes, `fitView` (`lib/canvas.ts`) before looking for them.
 - Need a regular user? `createUser` (`lib/api.ts`) invites one and sets their password through the
   email code reset; sign them in on a fresh context with `signIn`. Don't change the admin's
   password: a reset revokes the sessions other specs share.

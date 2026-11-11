@@ -1,4 +1,5 @@
-import { type BrowserContext, test as base, expect } from '@playwright/test'
+import { type BrowserContext, test as base, expect, type Page } from '@playwright/test'
+import { createUser, signIn } from './api'
 
 export { expect }
 
@@ -10,7 +11,7 @@ const isCspViolation = (text: string) => text.includes('Content Security Policy'
  * A blocked request often fails quietly (e.g. an image export that never downloads), so the
  * console is the only place it shows up. Also watches contexts opened with `browser.newContext`.
  */
-export const test = base.extend<{ failOnCspViolations: undefined }>({
+export const test = base.extend<{ failOnCspViolations: undefined; collaborator: Page }>({
   failOnCspViolations: [
     async ({ context, browser }, use) => {
       const violations: string[] = []
@@ -40,4 +41,16 @@ export const test = base.extend<{ failOnCspViolations: undefined }>({
     },
     { auto: true },
   ],
+  /**
+   * A page of a second, regular user with their own session and browser context, so they join
+   * an item as a separate participant. The user is created on first use, which takes a moment.
+   */
+  collaborator: async ({ browser, page, failOnCspViolations }, use) => {
+    void failOnCspViolations // set up first, so it watches the new context too
+    const user = await createUser(page.request)
+    const context = await browser.newContext({ storageState: { cookies: [], origins: [] } })
+    await signIn(context.request, user)
+    await use(await context.newPage())
+    await context.close()
+  },
 })

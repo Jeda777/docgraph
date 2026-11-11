@@ -104,6 +104,12 @@ export const createUser = async (adminRequest: APIRequestContext): Promise<TestU
   return { id, name, email, password: TEST_PASSWORD }
 }
 
+/** Creates an API key for the user behind `request` and returns the plain key. */
+export const createApiKey = async (request: APIRequestContext, name = uniqueName('Agent key')) => {
+  const { key } = await send<{ key: string }>(request, 'post', '/api/auth/api-key/create', { name })
+  return key
+}
+
 /** Signs `request` in with a password; a browser context's request shares its cookies. */
 export const signIn = (request: APIRequestContext, user: Pick<TestUser, 'email' | 'password'>) =>
   send(request, 'post', '/api/auth/sign-in/email', { email: user.email, password: user.password })
