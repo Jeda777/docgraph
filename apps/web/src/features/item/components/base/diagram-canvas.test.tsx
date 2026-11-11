@@ -1,6 +1,7 @@
 import { AREA_NODE_TYPE } from '@docgraph/common/schemas'
-import { cleanup, render } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import type { Edge, Node } from '@xyflow/react'
+import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { AreaNode } from './area-node'
 import {
@@ -14,7 +15,7 @@ type TestNode = Node<{ label: string; locked?: boolean }, 'test'>
 /** The part of `useDiagramCollections` the canvas reads to build its nodes. */
 type Collections = Pick<
   DiagramCanvasCollections<TestNode, Edge>,
-  'nodes' | 'layeredAreas' | 'allNodes' | 'edges' | 'readOnly'
+  'nodes' | 'layeredAreas' | 'allNodes' | 'edges' | 'readOnly' | 'history'
 >
 
 const state = vi.hoisted(() => ({
@@ -26,13 +27,17 @@ vi.mock('../../hooks/use-diagram-collections', () => ({
   useDiagramCollections: () => state.collections,
 }))
 
-// Captures the nodes the canvas hands to React Flow instead of rendering them.
+// Captures the nodes the canvas hands to React Flow instead of rendering them, and renders
+// only the overlays that don't need a React Flow store.
 vi.mock('@xyflow/react', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@xyflow/react')>()),
-  ReactFlow: ({ nodes }: { nodes: Node[] }) => {
+  ReactFlow: ({ nodes, children }: { nodes: Node[]; children: ReactNode }) => {
     state.flowNodes = nodes
-    return null
+    return children
   },
+  Background: () => null,
+  Panel: () => null,
+  Controls: ({ children }: { children: ReactNode }) => children,
 }))
 
 vi.mock('./cursors', () => ({ Cursors: () => null }))
@@ -51,13 +56,25 @@ const AREA: AreaNode = {
   data: { name: 'area', color: '#3b82f6', alpha: 0.2, order: 0 },
 }
 
-const setCollections = (nodes: TestNode[], readOnly = false) => {
+const history = {
+  undo: vi.fn(),
+  redo: vi.fn(),
+  canUndo: false,
+  canRedo: false,
+}
+
+const setCollections = (
+  nodes: TestNode[],
+  readOnly = false,
+  historyState: Partial<Collections['history']> = {},
+) => {
   state.collections = {
     nodes,
     layeredAreas: [AREA],
     allNodes: [AREA, ...nodes],
     edges: [],
     readOnly,
+    history: { ...history, ...historyState },
   }
 }
 
@@ -89,6 +106,8 @@ const flowNode = (id: string) => state.flowNodes.find((item) => item.id === id)
 afterEach(cleanup)
 
 beforeEach(() => {
+  history.undo.mockReset()
+  history.redo.mockReset()
   setCollections([node('a'), node('b', true)])
 })
 
@@ -161,5 +180,36 @@ describe('DiagramCanvas flow nodes', () => {
     rerender()
 
     expect(flowNode('a')).toMatchObject({ draggable: false })
+  })
+})
+
+describe('DiagramCanvas undo and redo buttons', () => {
+  const undoButton = () => screen.queryByRole('button', { name: 'Undo' })
+  const redoButton = () => screen.queryByRole('button', { name: 'Redo' })
+
+  it('are disabled when there is nothing to undo or redo', () => {
+    renderCanvas()
+
+    expect(undoButton()).toBeDisabled()
+    expect(redoButton()).toBeDisabled()
+  })
+
+  it('run undo and redo when enabled', () => {
+    setCollections(state.collections.nodes, false, { canUndo: true, canRedo: true })
+    renderCanvas()
+
+    fireEvent.click(undoButton() as HTMLElement)
+    fireEvent.click(redoButton() as HTMLElement)
+
+    expect(history.undo).toHaveBeenCalledOnce()
+    expect(history.redo).toHaveBeenCalledOnce()
+  })
+
+  it('are hidden in a read-only document', () => {
+    setCollections(state.collections.nodes, true, { canUndo: true })
+    renderCanvas()
+
+    expect(undoButton()).toBeNull()
+    expect(redoButton()).toBeNull()
   })
 })

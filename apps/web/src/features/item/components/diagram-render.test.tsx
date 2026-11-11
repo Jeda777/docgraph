@@ -23,6 +23,7 @@ import type { BusinessProcessNode as BusinessProcessNodeElement } from './busine
 import { BusinessProcessNode } from './business-process/business-process-node'
 import { DatabaseNode } from './database-diagram/database-node'
 import { FlowchartNode } from './flowchart/flowchart-node'
+import { getTextFitSize } from './flowchart/flowchart-node-size.helpers'
 
 // Diagram components read collaborative state through the hocuspocus provider;
 // an inert stub keeps them renderable outside the app shell.
@@ -113,7 +114,7 @@ const MutableCanvas = ({ initialNodes }: MutableCanvasProps) => {
   const [edges, setEdges] = useState<Edge[]>([])
 
   return (
-    <DiagramMutationContext.Provider value={{ setNodes, setEdges }}>
+    <DiagramMutationContext.Provider value={{ setNodes, repairNodes: setNodes, setEdges }}>
       <div style={{ width: 800, height: 600 }}>
         <ReactFlow
           nodes={nodes}
@@ -202,6 +203,42 @@ describe('flowchart rendering', () => {
     if (!text) throw new Error('Flowchart text surface was not rendered')
     fireEvent.doubleClick(text)
     expect(container.querySelectorAll('textarea')).toHaveLength(1)
+  })
+
+  it('grows a node drawn smaller than its text outside the undo history', async () => {
+    const text = 'x'.repeat(30)
+    const fit = getTextFitSize('flowchartProcessNode', text)
+    // Resizing set `width`, which React Flow draws over the larger stale `style`.
+    const tooSmall: Node = {
+      id: 'process',
+      type: 'flowchartProcessNode',
+      position: { x: 0, y: 0 },
+      data: { text },
+      width: fit.width - 50,
+      height: fit.height,
+      style: { width: fit.width + 50, height: fit.height },
+    }
+    const setNodes = vi.fn()
+    const repairNodes = vi.fn()
+
+    render(
+      <ReactFlowProvider>
+        <DiagramMutationContext.Provider value={{ setNodes, repairNodes, setEdges: vi.fn() }}>
+          <div style={{ width: 800, height: 600 }}>
+            <ReactFlow
+              nodes={[tooSmall]}
+              edges={[]}
+              nodeTypes={{ flowchartProcessNode: FlowchartNode }}
+            />
+          </div>
+        </DiagramMutationContext.Provider>
+      </ReactFlowProvider>,
+    )
+
+    await waitFor(() => expect(repairNodes).toHaveBeenCalled())
+    expect(setNodes).not.toHaveBeenCalled()
+    const [grown] = repairNodes.mock.calls[0][0]([tooSmall])
+    expect(grown).toMatchObject({ width: fit.width, style: { width: fit.width } })
   })
 })
 

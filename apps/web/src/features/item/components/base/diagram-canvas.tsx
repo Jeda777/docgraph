@@ -1,11 +1,23 @@
 import type { Connection, Edge, EdgeTypes, Node, NodeTypes, ZIndexMode } from '@xyflow/react'
-import { Background, ConnectionMode, Controls, Panel, ReactFlow } from '@xyflow/react'
+import {
+  Background,
+  ConnectionMode,
+  ControlButton,
+  Controls,
+  Panel,
+  ReactFlow,
+} from '@xyflow/react'
+import { Redo2, Undo2 } from 'lucide-react'
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef } from 'react'
 import { PageSpinner } from '@/components/page-spinner'
 import { useDiagramCollections } from '../../hooks/use-diagram-collections'
+import { useUndoShortcuts } from '../../hooks/use-undo-shortcuts'
+import { getUndoShortcutLabels } from '../../lib/undo-shortcuts.helpers'
 import type { AreaNode } from './area-node'
 import './controls.css'
 import { Cursors } from './cursors'
+
+const UNDO_SHORTCUT_LABELS = getUndoShortcutLabels()
 
 export type DiagramCanvasCollections<N extends Node, E extends Edge> = ReturnType<
   typeof useDiagramCollections<N, E>
@@ -13,6 +25,8 @@ export type DiagramCanvasCollections<N extends Node, E extends Edge> = ReturnTyp
 
 export type DiagramMutationContextValue = {
   setNodes: React.Dispatch<React.SetStateAction<Node[]>>
+  /** For derived fixes every client applies on its own; they stay out of the undo history. */
+  repairNodes: (update: (nodes: Node[]) => Node[]) => void
   setEdges: React.Dispatch<React.SetStateAction<Edge[]>>
 }
 
@@ -94,6 +108,7 @@ export const DiagramCanvas = <N extends Node, E extends Edge>({
     allNodes,
     edges,
     setNodes,
+    repairNodes,
     setEdges,
     readOnly,
     onNodesChange,
@@ -102,13 +117,16 @@ export const DiagramCanvas = <N extends Node, E extends Edge>({
     onEdgeReconnect,
     onNodeDragStart,
     onNodeDragStop,
+    history,
   } = collections
+  useUndoShortcuts({ undo: history.undo, redo: history.redo, enabled: connected && !readOnly })
   const mutationContext = useMemo<DiagramMutationContextValue>(
     () => ({
       setNodes: setNodes as React.Dispatch<React.SetStateAction<Node[]>>,
+      repairNodes: (update) => repairNodes((nodes) => update(nodes) as N[]),
       setEdges: setEdges as React.Dispatch<React.SetStateAction<Edge[]>>,
     }),
-    [setEdges, setNodes],
+    [repairNodes, setEdges, setNodes],
   )
   // Derived nodes are cached per source node so unchanged nodes keep their identity and
   // React Flow can skip them. `isNodeDraggable` and `getNodeZIndex` must only read the node
@@ -215,7 +233,28 @@ export const DiagramCanvas = <N extends Node, E extends Edge>({
           <Panel style={{ margin: 0 }} position='top-left'>
             {renderSidebar(collections, itemName)}
           </Panel>
-          <Controls position='bottom-right' />
+          <Controls position='bottom-right'>
+            {!readOnly && (
+              <>
+                <ControlButton
+                  title={`Undo (${UNDO_SHORTCUT_LABELS.undo})`}
+                  aria-label='Undo'
+                  disabled={!history.canUndo}
+                  onClick={history.undo}
+                >
+                  <Undo2 />
+                </ControlButton>
+                <ControlButton
+                  title={`Redo (${UNDO_SHORTCUT_LABELS.redo})`}
+                  aria-label='Redo'
+                  disabled={!history.canRedo}
+                  onClick={history.redo}
+                >
+                  <Redo2 />
+                </ControlButton>
+              </>
+            )}
+          </Controls>
         </ReactFlow>
       </DiagramMutationContext.Provider>
     </div>
