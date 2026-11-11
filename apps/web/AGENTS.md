@@ -18,6 +18,7 @@ General conventions: [root `AGENTS.md`](../../AGENTS.md).
 
 - Item content lives in a Yjs document via the Hocuspocus provider (`useHocuspocusProvider`) — never via REST, which handles metadata only.
 - Diagram collections go through `useYjsCollection` / `useDiagramCollections`; local UI state (selection, dragging) stays out of the shared document.
+- A collection keeps local edits not yet flushed (within the throttle window or while a drag holds writes) when a peer's update arrives; the flush then writes them, so the last write wins per item.
 - Diagram undo/redo (`useYjsUndo`):
   - **What it tracks:** only transactions with origin `COLLECTION_WRITE_ORIGIN`. It reverts only this client's edits and doesn't overwrite a peer's newer value, though it brings back an item a peer deleted after this client edited it.
   - **Writes:** diagram writes go through the collection (`setItems` / `replaceItems`); an outer transaction wrapping `replaceItems` passes `COLLECTION_WRITE_ORIGIN`.

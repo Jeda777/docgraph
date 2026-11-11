@@ -33,6 +33,20 @@ const persistable = <T extends object>(item: T): T => {
   return copy as T
 }
 
+/** Ids of items added, removed or changed in their persisted fields between two snapshots. */
+const editedIds = <T extends { id: string }>(prev: readonly T[], next: readonly T[]) => {
+  const prevById = new Map(prev.map((item) => [item.id, item]))
+  const nextIds = new Set(next.map((item) => item.id))
+  const ids = prev.filter((item) => !nextIds.has(item.id)).map((item) => item.id)
+  for (const item of next) {
+    const before = prevById.get(item.id)
+    if (before !== item && !isJsonEqual(before && persistable(before), persistable(item))) {
+      ids.push(item.id)
+    }
+  }
+  return ids
+}
+
 /** Re-attach local UI state to an item that just came back from the document. */
 const withVolatileFrom = <T extends object>(item: T, local: T): T => {
   const extra: Record<string, unknown> = {}
@@ -60,6 +74,11 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Ids whose local edits are withheld from the document (see `hold`).
   const heldRef = useRef<Set<string>>(new Set())
+  // Ids edited locally since the last flush. A peer's update arriving before the flush must not
+  // replace them, or the edit is lost.
+  const unflushedRef = useRef<Set<string>>(new Set())
+  // The part of `unflushedRef` created locally, which the document has never seen.
+  const addedRef = useRef<Set<string>>(new Set())
   const [held, setHeld] = useState(false)
 
   /**
@@ -82,6 +101,8 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
   const flush = useCallback(() => {
     if (readOnly) return
     markFlushed()
+    unflushedRef.current.clear()
+    addedRef.current.clear()
 
     // Only items whose persisted fields differ (deep JSON comparison) are set.
     // Volatile keys are stripped first: selecting or measuring a node is not a
@@ -99,16 +120,28 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
     const sync = (_event: YMapEvent<T>, transaction: Transaction) => {
       if (LOCAL_ORIGINS.has(transaction.origin)) return
       const held = heldRef.current
+      const unflushed = unflushedRef.current
       const local = new Map(pendingRef.current.map((item) => [item.id, item]))
-      const values = Array.from(map.values()).map((item) => {
+      const values: T[] = []
+      for (const item of map.values()) {
         const mine = local.get(item.id)
-        // Held items (e.g. the node being dragged right now) keep their local
-        // version — the document doesn't know about them yet.
-        if (mine && held.has(item.id)) return mine
-        // The document carries no volatile keys, so a peer's edit would
-        // otherwise clear our own selection. Carry it over.
-        return mine ? withVolatileFrom(item, mine) : item
-      })
+        // Deleted locally, not flushed yet
+        if (!mine) {
+          if (!unflushed.has(item.id)) values.push(item)
+          continue
+        }
+        // Held items (e.g. the node being dragged right now) and edits not flushed yet keep their
+        // local version — the document doesn't know about them yet. Other items take the
+        // document's version; it carries no volatile keys, so a peer's edit would otherwise
+        // clear our own selection. Carry it over.
+        const keepMine = held.has(item.id) || unflushed.has(item.id)
+        values.push(keepMine ? mine : withVolatileFrom(item, mine))
+      }
+      // Added locally, not flushed yet
+      for (const id of addedRef.current) {
+        const mine = local.get(id)
+        if (mine && !map.has(id)) values.push(mine)
+      }
       pendingRef.current = values
       setLocalItems(values)
     }
@@ -146,6 +179,11 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
     const prev = pendingRef.current
     const next = typeof action === 'function' ? (action as (p: T[]) => T[])(prev) : action
 
+    const prevIds = new Set(prev.map((item) => item.id))
+    for (const id of editedIds(prev, next)) {
+      unflushedRef.current.add(id)
+      if (!prevIds.has(id)) addedRef.current.add(id)
+    }
     pendingRef.current = next
     setLocalItems(next)
 
@@ -180,6 +218,8 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
   const replaceItems = (next: T[]) => {
     if (readOnly) return
     markFlushed()
+    unflushedRef.current.clear()
+    addedRef.current.clear()
     pendingRef.current = next
     setLocalItems(next)
 

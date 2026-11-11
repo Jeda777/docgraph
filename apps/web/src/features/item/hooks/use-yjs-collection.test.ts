@@ -306,6 +306,67 @@ describe('useYjsCollection', () => {
       expect(Object.keys(snapshot()).sort()).toEqual(['a', 'b'])
     })
 
+    it('keeps local edits not written yet when a peer edits other items', () => {
+      map().set('a', { id: 'a', label: 'A' })
+      map().set('b', { id: 'b', label: 'B' })
+      map().set('c', { id: 'c', label: 'C' })
+      const { result } = renderCollection()
+      act(() => result.current.setItems((prev) => prev.map((item) => ({ ...item, x: 1 }))))
+
+      // Inside the throttle window: edit `a`, add `d`, delete `c`
+      act(() =>
+        result.current.setItems((prev) => [
+          ...prev
+            .filter((item) => item.id !== 'c')
+            .map((item) => (item.id === 'a' ? { ...item, label: 'A local' } : item)),
+          { id: 'd', label: 'D' },
+        ]),
+      )
+      remote((peerMap) => peerMap.set('b', { id: 'b', label: 'B remote', x: 1 }))
+
+      const expected = [
+        { id: 'a', label: 'A local', x: 1 },
+        { id: 'b', label: 'B remote', x: 1 },
+        { id: 'd', label: 'D' },
+      ]
+      expect(result.current.items).toEqual(expected)
+      act(() => vi.runAllTimers())
+      expect(Object.values(snapshot())).toEqual(expect.arrayContaining(expected))
+      expect(map().size).toBe(3)
+    })
+
+    it('drops an item a peer deletes while its local edit is not written yet', () => {
+      map().set('a', { id: 'a', label: 'A' })
+      const { result } = renderCollection()
+      act(() => result.current.setItems([{ id: 'b', label: 'B' }, ...result.current.items]))
+      act(() =>
+        result.current.setItems((prev) =>
+          prev.map((item) => (item.id === 'a' ? { ...item, label: 'A local' } : item)),
+        ),
+      )
+
+      remote((peerMap) => peerMap.delete('a'))
+      act(() => vi.runAllTimers())
+
+      expect(result.current.items).toEqual([{ id: 'b', label: 'B' }])
+      expect(snapshot()).toEqual({ b: { id: 'b', label: 'B' } })
+    })
+
+    it('lets a peer edit win over a selection change not written yet', () => {
+      map().set('a', { id: 'a', label: 'A' })
+      const { result } = renderCollection()
+      act(() => result.current.setItems([{ id: 'b', label: 'B' }, ...result.current.items]))
+      act(() =>
+        result.current.setItems((prev) => prev.map((item) => ({ ...item, selected: true }))),
+      )
+
+      remote((peerMap) => peerMap.set('a', { id: 'a', label: 'A remote' }))
+      act(() => vi.runAllTimers())
+
+      expect(map().get('a')).toEqual({ id: 'a', label: 'A remote' })
+      expect(result.current.items).toContainEqual({ id: 'a', label: 'A remote', selected: true })
+    })
+
     it('stops listening after unmount', () => {
       const { result, unmount } = renderCollection()
       unmount()
