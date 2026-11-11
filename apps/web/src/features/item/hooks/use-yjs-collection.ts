@@ -1,6 +1,6 @@
 import { isJsonEqual, syncCollection } from '@docgraph/common/diagram'
 import { useHocuspocusProvider } from '@hocuspocus/provider-react'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { Transaction, YMapEvent } from 'yjs'
 import { useDocumentReadOnly } from './use-document-read-only'
 
@@ -57,12 +57,24 @@ const withVolatileFrom = <T extends object>(item: T, local: T): T => {
   return Object.keys(extra).length ? { ...item, ...extra } : item
 }
 
+export type YjsCollectionOptions<T> = {
+  /**
+   * Checked for each local edit when it is written. Return false when the item points at
+   * something missing from the document, e.g. a node a peer deleted within the throttle window:
+   * the document's version replaces the edit then, and a new item is dropped.
+   */
+  canWrite?: (item: T) => boolean
+}
+
 /**
  * Drop-in for `useState<T[]>` backed by a Yjs `Map` keyed by `id`. Local state updates on every
  * call so dragging stays responsive; document writes are throttled to one per
  * `FLUSH_INTERVAL_MS` (leading and trailing).
  */
-export const useYjsCollection = <T extends { id: string }>(name: string) => {
+export const useYjsCollection = <T extends { id: string }>(
+  name: string,
+  { canWrite }: YjsCollectionOptions<T> = {},
+) => {
   const provider = useHocuspocusProvider()
   const readOnly = useDocumentReadOnly()
   const [items, setLocalItems] = useState<T[]>([])
@@ -80,6 +92,10 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
   // The part of `unflushedRef` created locally, which the document has never seen.
   const addedRef = useRef<Set<string>>(new Set())
   const [held, setHeld] = useState(false)
+  const canWriteRef = useRef(canWrite)
+  useLayoutEffect(() => {
+    canWriteRef.current = canWrite
+  })
 
   /**
    * Cancels the scheduled trailing flush and restarts the throttle window.
@@ -101,14 +117,30 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
   const flush = useCallback(() => {
     if (readOnly) return
     markFlushed()
-    unflushedRef.current.clear()
+    const map = provider.document.getMap<T>(name)
+    const check = canWriteRef.current
+    const unflushed = unflushedRef.current
+    if (check && unflushed.size) {
+      let rejected = false
+      const next = pendingRef.current.flatMap((item) => {
+        if (!unflushed.has(item.id) || check(item)) return [item]
+        rejected = true
+        const stored = map.get(item.id)
+        return stored ? [withVolatileFrom(stored, item)] : []
+      })
+      if (rejected) {
+        pendingRef.current = next
+        setLocalItems(next)
+      }
+    }
+    unflushed.clear()
     addedRef.current.clear()
 
     // Only items whose persisted fields differ (deep JSON comparison) are set.
     // Volatile keys are stripped first: selecting or measuring a node is not a
     // document change and must not hit the wire.
     provider.document.transact(
-      () => syncCollection(provider.document.getMap<T>(name), pendingRef.current, persistable),
+      () => syncCollection(map, pendingRef.current, persistable),
       COLLECTION_WRITE_ORIGIN,
     )
   }, [markFlushed, name, provider, readOnly])
@@ -265,5 +297,8 @@ export const useYjsCollection = <T extends { id: string }>(name: string) => {
     }, COLLECTION_REPAIR_ORIGIN)
   }
 
-  return { items, setItems, hold, held, replaceItems, repairItems, flush }
+  /** Whether the item was created here and is not in the document yet. */
+  const isAddedLocally = (id: string) => addedRef.current.has(id)
+
+  return { items, setItems, hold, held, replaceItems, repairItems, flush, isAddedLocally }
 }

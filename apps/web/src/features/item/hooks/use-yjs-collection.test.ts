@@ -1,7 +1,11 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
-import { COLLECTION_WRITE_ORIGIN, useYjsCollection } from './use-yjs-collection'
+import {
+  COLLECTION_WRITE_ORIGIN,
+  useYjsCollection,
+  type YjsCollectionOptions,
+} from './use-yjs-collection'
 
 type Item = {
   id: string
@@ -47,7 +51,8 @@ const countWrites = () => {
   return () => writes
 }
 
-const renderCollection = () => renderHook(() => useYjsCollection<Item>(MAP_NAME))
+const renderCollection = (options?: YjsCollectionOptions<Item>) =>
+  renderHook(() => useYjsCollection<Item>(MAP_NAME, options))
 
 describe('useYjsCollection', () => {
   beforeEach(() => {
@@ -367,6 +372,46 @@ describe('useYjsCollection', () => {
       expect(result.current.items).toContainEqual({ id: 'a', label: 'A remote', selected: true })
     })
 
+    it('keeps a local delete not written yet when a peer edits the same item', () => {
+      map().set('a', { id: 'a', label: 'A' })
+      map().set('b', { id: 'b', label: 'B' })
+      const { result } = renderCollection()
+      act(() => result.current.setItems((prev) => prev.map((item) => ({ ...item, x: 1 }))))
+      act(() => result.current.setItems((prev) => prev.filter((item) => item.id !== 'b')))
+
+      remote((peerMap) => peerMap.set('b', { id: 'b', label: 'B remote' }))
+      expect(result.current.items).toEqual([{ id: 'a', label: 'A', x: 1 }])
+      act(() => vi.runAllTimers())
+
+      expect(snapshot()).toEqual({ a: { id: 'a', label: 'A', x: 1 } })
+    })
+
+    it('writes the document version instead of local edits canWrite rejects', () => {
+      map().set('a', { id: 'a', label: 'A' })
+      map().set('b', { id: 'b', label: 'B' })
+      const { result } = renderCollection({ canWrite: (item) => item.label !== 'invalid' })
+      act(() => result.current.setItems((prev) => prev.map((item) => ({ ...item, x: 1 }))))
+
+      // Inside the throttle window: an edit and a new item the check rejects, one it accepts
+      act(() =>
+        result.current.setItems((prev) => [
+          ...prev.map((item) => (item.id === 'a' ? { ...item, label: 'invalid' } : item)),
+          { id: 'c', label: 'invalid' },
+          { id: 'd', label: 'D' },
+        ]),
+      )
+      remote((peerMap) => peerMap.set('b', { id: 'b', label: 'B remote', x: 1 }))
+      act(() => vi.runAllTimers())
+
+      const expected = {
+        a: { id: 'a', label: 'A', x: 1 },
+        b: { id: 'b', label: 'B remote', x: 1 },
+        d: { id: 'd', label: 'D' },
+      }
+      expect(result.current.items).toEqual(Object.values(expected))
+      expect(snapshot()).toEqual(expected)
+    })
+
     it('stops listening after unmount', () => {
       const { result, unmount } = renderCollection()
       unmount()
@@ -442,6 +487,31 @@ describe('useYjsCollection', () => {
       expect(snapshot()).toEqual({
         a: { id: 'a', label: 'A', x: 42 },
         b: { id: 'b', label: 'B from peer' },
+      })
+    })
+  })
+
+  describe('hold and remote sync', () => {
+    it('keeps an edit of an item not held when a peer update arrives during the hold', () => {
+      map().set('a', { id: 'a', label: 'A' })
+      map().set('b', { id: 'b', label: 'B' })
+      map().set('c', { id: 'c', label: 'C' })
+      const { result } = renderCollection()
+      act(() => result.current.hold(['a']))
+      act(() =>
+        result.current.setItems((prev) =>
+          prev.map((item) => (item.id === 'b' ? { ...item, label: 'B local' } : item)),
+        ),
+      )
+
+      remote((peerMap) => peerMap.set('c', { id: 'c', label: 'C remote' }))
+      expect(result.current.items).toContainEqual({ id: 'b', label: 'B local' })
+      act(() => result.current.hold([]))
+
+      expect(snapshot()).toEqual({
+        a: { id: 'a', label: 'A' },
+        b: { id: 'b', label: 'B local' },
+        c: { id: 'c', label: 'C remote' },
       })
     })
   })

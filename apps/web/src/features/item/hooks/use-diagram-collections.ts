@@ -61,9 +61,20 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
 }: DiagramCollectionsOptions<NodeType, EdgeType>) => {
   const readOnly = useDocumentReadOnly()
   const provider = useHocuspocusProvider()
-  const nodeCollection = useYjsCollection<NodeType>(DIAGRAM_MAPS.nodes)
-  const edgeCollection = useYjsCollection<EdgeType>(DIAGRAM_MAPS.edges)
+  // A local edit must not write a reference to what a peer deleted before the edit was written
+  const nodeCollection = useYjsCollection<NodeType>(DIAGRAM_MAPS.nodes, {
+    canWrite: (item) => !item.parentId || elementExists(item.parentId),
+  })
+  const edgeCollection = useYjsCollection<EdgeType>(DIAGRAM_MAPS.edges, {
+    canWrite: (item) => elementExists(item.source) && elementExists(item.target),
+  })
   const areaCollection = useYjsCollection<AreaNode>(DIAGRAM_MAPS.areas)
+  /** Whether a node or area is in the document, or was created here and not written yet. */
+  const elementExists = (id: string): boolean =>
+    provider.document.getMap(DIAGRAM_MAPS.nodes).has(id) ||
+    provider.document.getMap(DIAGRAM_MAPS.areas).has(id) ||
+    nodeCollection.isAddedLocally(id) ||
+    areaCollection.isAddedLocally(id)
   const { items: nodes, setItems: setRawNodes } = nodeCollection
   const { items: edges, setItems: setEdges } = edgeCollection
   const { items: areas, setItems: setAreas } = areaCollection
