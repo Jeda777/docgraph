@@ -132,7 +132,7 @@ export const ApiKeysSection = () => {
       </FormProvider>
 
       {apiKeys && apiKeys.length > 0 && (
-        <ul className='flex flex-col divide-y rounded-lg border'>
+        <ul className='flex max-h-60 flex-col divide-y overflow-y-auto rounded-lg border'>
           {apiKeys.map((apiKey) => (
             <li key={apiKey.id} className='flex items-center gap-2 px-3 py-2'>
               <div className='min-w-0 flex-1'>
