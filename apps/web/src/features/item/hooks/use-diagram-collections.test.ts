@@ -435,6 +435,51 @@ describe('useDiagramCollections', () => {
       expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b'])
     })
 
+    it('drops a new child of a new lane whose pool the peer deleted', () => {
+      seed({ nodes: [node('a'), node('pool')] })
+      const { result } = renderCollections()
+      act(() => result.current.setNodes((current) => [...current, node('b')]))
+      act(() =>
+        result.current.setNodes((current) => [
+          ...current,
+          { ...node('lane'), parentId: 'pool' },
+          { ...node('child'), parentId: 'lane' },
+        ]),
+      )
+
+      remote((peer) => peer.getMap(DIAGRAM_MAPS.nodes).delete('pool'))
+      const written = new Set<string>()
+      docMap(DIAGRAM_MAPS.nodes).observe((event) => {
+        for (const key of event.keysChanged) written.add(key)
+      })
+      flush()
+
+      expect(ids(result.current.nodes)).toEqual(['a', 'b'])
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b'])
+      // Rejected before the write, not cleaned up after it
+      expect(written).toEqual(new Set())
+    })
+
+    it('removes an edge written before its new node was dropped', () => {
+      seed({ nodes: [node('a'), node('pool')] })
+      const { result } = renderCollections()
+      act(() => result.current.setNodes((current) => [...current, node('b')]))
+      act(() =>
+        result.current.setNodes((current) => [...current, { ...node('child'), parentId: 'pool' }]),
+      )
+      // The edge collection has its own throttle, so this edge is written right away
+      act(() => result.current.setEdges((current) => [...current, edge('ac', 'a', 'child')]))
+      expect(Object.keys(stored(DIAGRAM_MAPS.edges))).toEqual(['ac'])
+
+      remote((peer) => peer.getMap(DIAGRAM_MAPS.nodes).delete('pool'))
+      flush()
+
+      expect(Object.keys(stored(DIAGRAM_MAPS.nodes)).sort()).toEqual(['a', 'b'])
+      expect(stored(DIAGRAM_MAPS.edges)).toEqual({})
+      expect(result.current.edges).toEqual([])
+      expect(result.current.history.canUndo).toBe(true)
+    })
+
     it('keeps a new edge to a node created here and not written yet', () => {
       seed({ nodes: [node('a'), node('b')], edges: [edge('ab', 'a', 'b')] })
       const { result } = renderCollections()

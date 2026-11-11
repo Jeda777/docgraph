@@ -61,20 +61,34 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
 }: DiagramCollectionsOptions<NodeType, EdgeType>) => {
   const readOnly = useDocumentReadOnly()
   const provider = useHocuspocusProvider()
-  // A local edit must not write a reference to what a peer deleted before the edit was written
+  // A local edit must not write a reference to what a peer deleted before the edit was written.
+  // The collections flush separately, so an edge can still be written before its new node is
+  // rejected; `dropOrphans` then removes it.
   const nodeCollection = useYjsCollection<NodeType>(DIAGRAM_MAPS.nodes, {
-    canWrite: (item) => !item.parentId || elementExists(item.parentId),
+    canWrite: (item) => hasParent(item),
+    onRejected: () => dropOrphans(),
   })
   const edgeCollection = useYjsCollection<EdgeType>(DIAGRAM_MAPS.edges, {
     canWrite: (item) => elementExists(item.source) && elementExists(item.target),
   })
   const areaCollection = useYjsCollection<AreaNode>(DIAGRAM_MAPS.areas)
-  /** Whether a node or area is in the document, or was created here and not written yet. */
-  const elementExists = (id: string): boolean =>
-    provider.document.getMap(DIAGRAM_MAPS.nodes).has(id) ||
-    provider.document.getMap(DIAGRAM_MAPS.areas).has(id) ||
-    nodeCollection.isAddedLocally(id) ||
-    areaCollection.isAddedLocally(id)
+  /**
+   * Whether a node or area is in the document, or was created here and can be written itself.
+   * `visited` stops a parent cycle.
+   */
+  const elementExists = (id: string, visited = new Set<string>()): boolean => {
+    const doc = provider.document
+    if (doc.getMap(DIAGRAM_MAPS.nodes).has(id) || doc.getMap(DIAGRAM_MAPS.areas).has(id)) {
+      return true
+    }
+    if (areaCollection.getUnwritten(id)) return true
+    const unwritten = nodeCollection.getUnwritten(id)
+    if (!unwritten || visited.has(id)) return false
+    visited.add(id)
+    return hasParent(unwritten, visited)
+  }
+  const hasParent = (item: NodeType, visited?: Set<string>): boolean =>
+    !item.parentId || elementExists(item.parentId, visited)
   const { items: nodes, setItems: setRawNodes } = nodeCollection
   const { items: edges, setItems: setEdges } = edgeCollection
   const { items: areas, setItems: setAreas } = areaCollection
@@ -86,11 +100,11 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
     })
 
   /**
-   * Undo can restore a node whose parent, or an edge whose node, a peer deleted in the meantime.
-   * Such orphans are deleted again, as the peer's delete would have done, along with their edges
+   * Undo can restore a node whose parent, or an edge whose node, a peer deleted in the meantime;
+   * an edge can also be written just before its new node is rejected (`canWrite`). Such orphans are deleted again, as the peer's delete would have done, along with their edges
    * and references to them, outside the undo history.
    */
-  const dropOrphans = () => {
+  const dropOrphans = (): void => {
     const doc = provider.document
     const storedNodes = Array.from(doc.getMap<NodeType>(DIAGRAM_MAPS.nodes).values())
     const elementIds = new Set([

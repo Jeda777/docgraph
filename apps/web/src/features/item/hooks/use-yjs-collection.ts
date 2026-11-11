@@ -64,6 +64,8 @@ export type YjsCollectionOptions<T> = {
    * the document's version replaces the edit then, and a new item is dropped.
    */
   canWrite?: (item: T) => boolean
+  /** Runs after a flush that rejected edits, e.g. to drop what was written pointing at them. */
+  onRejected?: () => void
 }
 
 /**
@@ -73,7 +75,7 @@ export type YjsCollectionOptions<T> = {
  */
 export const useYjsCollection = <T extends { id: string }>(
   name: string,
-  { canWrite }: YjsCollectionOptions<T> = {},
+  options: YjsCollectionOptions<T> = {},
 ) => {
   const provider = useHocuspocusProvider()
   const readOnly = useDocumentReadOnly()
@@ -92,9 +94,9 @@ export const useYjsCollection = <T extends { id: string }>(
   // The part of `unflushedRef` created locally, which the document has never seen.
   const addedRef = useRef<Set<string>>(new Set())
   const [held, setHeld] = useState(false)
-  const canWriteRef = useRef(canWrite)
+  const optionsRef = useRef(options)
   useLayoutEffect(() => {
-    canWriteRef.current = canWrite
+    optionsRef.current = options
   })
 
   /**
@@ -118,12 +120,12 @@ export const useYjsCollection = <T extends { id: string }>(
     if (readOnly) return
     markFlushed()
     const map = provider.document.getMap<T>(name)
-    const check = canWriteRef.current
+    const { canWrite, onRejected } = optionsRef.current
     const unflushed = unflushedRef.current
-    if (check && unflushed.size) {
-      let rejected = false
+    let rejected = false
+    if (canWrite && unflushed.size) {
       const next = pendingRef.current.flatMap((item) => {
-        if (!unflushed.has(item.id) || check(item)) return [item]
+        if (!unflushed.has(item.id) || canWrite(item)) return [item]
         rejected = true
         const stored = map.get(item.id)
         return stored ? [withVolatileFrom(stored, item)] : []
@@ -143,6 +145,7 @@ export const useYjsCollection = <T extends { id: string }>(
       () => syncCollection(map, pendingRef.current, persistable),
       COLLECTION_WRITE_ORIGIN,
     )
+    if (rejected) onRejected?.()
   }, [markFlushed, name, provider, readOnly])
 
   // Keep local state in sync with the document. Our own writes are ignored because we
@@ -297,8 +300,9 @@ export const useYjsCollection = <T extends { id: string }>(
     }, COLLECTION_REPAIR_ORIGIN)
   }
 
-  /** Whether the item was created here and is not in the document yet. */
-  const isAddedLocally = (id: string) => addedRef.current.has(id)
+  /** The item with this id if it was created here and is not in the document yet. */
+  const getUnwritten = (id: string) =>
+    addedRef.current.has(id) ? pendingRef.current.find((item) => item.id === id) : undefined
 
-  return { items, setItems, hold, held, replaceItems, repairItems, flush, isAddedLocally }
+  return { items, setItems, hold, held, replaceItems, repairItems, flush, getUnwritten }
 }
