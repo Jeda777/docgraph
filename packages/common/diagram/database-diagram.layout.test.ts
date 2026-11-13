@@ -1,8 +1,8 @@
-import { TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT } from '@docgraph/common/diagram'
-import type { DatabaseDiagramNodeDataValue } from '@docgraph/common/schemas'
 import { describe, expect, it } from 'vitest'
+import type { DatabaseDiagramNodeDataValue } from '../schemas'
 import { gridPositions, tableHeight } from './database-diagram.layout'
 import type { DiagramNode } from './database-diagram.model'
+import { TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT } from './diagram-defaults'
 
 const column = (id: string): DatabaseDiagramNodeDataValue => ({
   id,

@@ -12,6 +12,7 @@
   "dependencies": {
     "@base-ui/react": "^1.9.0",
     "@better-auth/api-key": "catalog:",
+    "@dbml/parse": "11.0.0",
     "@docgraph/common": "workspace:*",
     "@floating-ui/dom": "^1.8.0",
     "@fontsource-variable/geist": "^5.3.0",

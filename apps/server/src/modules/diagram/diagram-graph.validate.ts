@@ -1,7 +1,7 @@
+import { findDuplicates } from '@docgraph/common/diagram'
 import type { DiagramGraphUpdate } from '@docgraph/common/schemas'
 import type { z } from 'zod'
 import { BadRequestException } from '../../errors'
-import { findDuplicates } from '../../lib/find-duplicates'
 import type { GraphConfig, GraphDocument } from './diagram-graph.model'
 
 /** Rejects an update that gives the same node or edge id twice. */
