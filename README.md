@@ -33,7 +33,7 @@
 - **Real-time collaboration** — every item is a [Yjs](https://yjs.dev) CRDT document synced over WebSocket, so several people can edit the same diagram or document at once without conflicts.
 - **MCP server for AI agents** — coding agents can read a database diagram to write migrations and models, push a schema from code back into a diagram, or draft flowcharts, processes and docs. [More below](#mcp-for-ai-agents).
 - **Projects and access control** — group items into projects open to everyone or to selected members; archived projects stay read-only.
-- **Import and export** — move diagrams and documents between instances or into other tools, and export diagrams as images.
+- **Import and export** — move diagrams and documents between instances or into other tools, bring database schemas in and out as [DBML](https://dbml.dbdiagram.io/docs/), and export diagrams as images.
 - **Team-ready auth** — email + password or one-time code login, password reset by email, admin-only invitations and user management.
 - **Light and dark themes**, following the system preference by default.
 - **Easy to self-host** — one Docker image serves the UI, REST API and WebSocket; the only dependency is PostgreSQL. Migrations run automatically on start.

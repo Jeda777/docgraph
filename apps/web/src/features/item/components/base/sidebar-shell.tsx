@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { downloadDocgraph, IMAGE_FORMATS, type ImageFormat } from '../../lib/download.helpers'
-import { EditorHeader } from './editor-header'
+import { type EditorExportFormat, EditorHeader } from './editor-header'
 
 export type SidebarTabOption<Kind extends string> = {
   value: Kind
@@ -24,6 +24,8 @@ type SidebarShellProps<Kind extends string> = {
   onImport: (event: React.ChangeEvent<HTMLInputElement>) => Promise<void>
   onDownloadJson: () => void
   onDownloadImage: (format: ImageFormat) => void
+  /** Diagram-specific formats, listed after JSON. */
+  extraExportFormats?: EditorExportFormat[]
   tab: Kind
   onTabChange: (tab: Kind) => void
   tabs: SidebarTabOption<Kind>[]
@@ -44,6 +46,7 @@ export const SidebarShell = <Kind extends string>({
   onImport,
   onDownloadJson,
   onDownloadImage,
+  extraExportFormats = [],
   tab,
   onTabChange,
   tabs,
@@ -73,6 +76,7 @@ export const SidebarShell = <Kind extends string>({
         exportFormats={[
           { label: 'DocGraph', onSelect: () => downloadDocgraph(provider.document, itemName) },
           { label: 'JSON', onSelect: onDownloadJson },
+          ...extraExportFormats,
           ...IMAGE_FORMATS.map((format) => ({
             label: format.toUpperCase(),
             onSelect: () => onDownloadImage(format),
