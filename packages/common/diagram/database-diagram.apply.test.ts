@@ -1,5 +1,5 @@
-import { type DatabaseSchemaInput, databaseSchemaSchema } from '@docgraph/common/schemas'
 import { describe, expect, it } from 'vitest'
+import { type DatabaseSchemaInput, databaseSchemaSchema } from '../schemas'
 import { applyDatabaseSchema } from './database-diagram.apply'
 import { toDatabaseSchema } from './database-diagram.mapper'
 import type { DiagramDocument } from './database-diagram.model'

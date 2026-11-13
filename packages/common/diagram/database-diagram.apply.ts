@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto'
 import {
   columnHandleId,
   columnIdFromHandleId,
@@ -12,12 +11,11 @@ import {
   type DatabaseSchemaTable,
   nodeColorAt,
   type SchemaApplyMode,
-} from '@docgraph/common/schemas'
-import { BadRequestException } from '../../errors'
-import { findDuplicates } from '../../lib/find-duplicates'
+} from '../schemas'
 import { gridPositions, tableHeight } from './database-diagram.layout'
 import {
   asTableNode,
+  DatabaseSchemaError,
   type DiagramDocument,
   type DiagramEdge,
   type DiagramNode,
@@ -27,6 +25,8 @@ import {
   type TableNode,
 } from './database-diagram.model'
 import { validateTables } from './database-diagram.validate'
+import { findDuplicates } from './find-duplicates'
+import { randomId } from './random-id'
 
 const buildTableData = (
   table: DatabaseSchemaTable,
@@ -38,7 +38,7 @@ const buildTableData = (
   const values = table.columns.map((column): DatabaseDiagramNodeDataValue => {
     const previous = existingColumns.get(column.name)
     return {
-      id: previous?.id ?? randomUUID(),
+      id: previous?.id ?? randomId(),
       name: column.name,
       value: column.type,
       primaryKey: column.primaryKey,
@@ -65,7 +65,7 @@ const buildTableData = (
   const constraints = (table.indexes ?? []).map((index): DatabaseDiagramNodeDataConstraint => {
     const columns = index.columns.flatMap((name) => columnIdByName.get(name) ?? [])
     return {
-      id: existingConstraints.get(constraintKey(index.type, columns)) ?? randomUUID(),
+      id: existingConstraints.get(constraintKey(index.type, columns)) ?? randomId(),
       type: index.type,
       columns,
     }
@@ -111,8 +111,7 @@ export const applyDatabaseSchema = (
   const ambiguousNames = new Set(findDuplicates(existingTables.map((node) => node.data.name)))
   const ambiguousInput = [...inputNames].filter((name) => ambiguousNames.has(name))
   if (ambiguousInput.length) {
-    throw new BadRequestException(
-      'BAD_REQUEST',
+    throw new DatabaseSchemaError(
       `The diagram has several tables named ${ambiguousInput.join(', ')}; rename them in the editor first`,
     )
   }
@@ -125,7 +124,7 @@ export const applyDatabaseSchema = (
   })
 
   const newTables = schema.tables.filter((table) => !existingByName.has(table.name))
-  const newIds = new Map(newTables.map((table) => [table.name, randomUUID()]))
+  const newIds = new Map(newTables.map((table) => [table.name, randomId()]))
   const keptForLayout = current.nodes.filter(
     (node) => untouched.includes(node) || inputNames.has(asTableNode(node)?.data.name ?? ''),
   )
@@ -143,7 +142,7 @@ export const applyDatabaseSchema = (
 
     if (previous) return { ...previous, data }
     return {
-      id: newIds.get(table.name) ?? randomUUID(),
+      id: newIds.get(table.name) ?? randomId(),
       type: DATABASE_DIAGRAM_NODE_TYPE,
       position: newPosition.get(table.name) ?? { x: 0, y: 0 },
       data,
@@ -197,7 +196,7 @@ export const applyDatabaseSchema = (
       previous
         ? { ...previous, data }
         : {
-            id: randomUUID(),
+            id: randomId(),
             type: DATABASE_DIAGRAM_EDGE_TYPE,
             source: from.nodeId,
             // Relations leave a table on the right and enter on the left.
@@ -210,8 +209,7 @@ export const applyDatabaseSchema = (
   }
 
   if (unresolved.length) {
-    throw new BadRequestException(
-      'BAD_REQUEST',
+    throw new DatabaseSchemaError(
       `Relations reference unknown or ambiguous tables or columns:\n${unresolved.join('\n')}`,
     )
   }
