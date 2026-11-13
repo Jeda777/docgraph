@@ -1,10 +1,11 @@
-import { apiKeyDateInDays } from '@docgraph/common/schemas'
+import { API_KEY_SCOPE_MAX_ITEMS, apiKeyDateInDays } from '@docgraph/common/schemas'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const KEY_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T3'
 const PROJECT_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T4'
 const ITEM_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T5'
+const OTHER_ITEM_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T6'
 const UNRESTRICTED = { readOnly: false, projects: null }
 const PLAIN_KEY = 'dg_secret_value'
 
@@ -91,6 +92,7 @@ describe('ApiKeysSection', () => {
     render(<ApiKeysSection />)
 
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getByText('No API keys yet.')).toBeInTheDocument()
   })
 
   it('does not create a key without a name', async () => {
@@ -122,6 +124,18 @@ describe('ApiKeysSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByText(PLAIN_KEY)).not.toBeInTheDocument()
+  })
+
+  it('closes the created key on a backdrop click', async () => {
+    render(<ApiKeysSection />)
+    await createKey('desktop')
+    act(() => lastOptions(api.create.mutate)?.onSuccess?.({ key: PLAIN_KEY }))
+
+    const backdrop = document.querySelector('[data-slot="dialog-overlay"]')
+    if (!backdrop) throw new Error('No backdrop')
+    fireEvent.click(backdrop)
+
+    await waitFor(() => expect(screen.queryByText(PLAIN_KEY)).not.toBeInTheDocument())
   })
 
   it('copies the created key to the clipboard', async () => {
@@ -210,14 +224,13 @@ describe('ApiKeysSection', () => {
     fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
     fireEvent.click(screen.getByRole('checkbox', { name: /Read-only/ }))
     fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Billing' }))
-    fireEvent.click(screen.getByRole('radio', { name: 'Selected items' }))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
-    expect(await screen.findByText('Select at least one item')).toBeInTheDocument()
-    expect(api.create.mutate).not.toHaveBeenCalled()
-
+    fireEvent.click(screen.getByRole('button', { name: 'Show items of Billing' }))
     fireEvent.click(screen.getByRole('checkbox', { name: 'Schema' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Billing' })).toHaveAttribute(
+      'aria-checked',
+      'mixed',
+    )
     fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
 
     await waitFor(() => expect(api.create.mutate).toHaveBeenCalled())
@@ -226,6 +239,52 @@ describe('ApiKeysSection', () => {
       expiresOn: '',
       restrictions: { readOnly: true, projects: [{ projectId: PROJECT_ID, itemIds: [ITEM_ID] }] },
     })
+  })
+
+  it('narrows a whole project to the items left checked', async () => {
+    api.project.data = {
+      items: [
+        { id: ITEM_ID, name: 'Schema' },
+        { id: OTHER_ITEM_ID, name: 'Flow' },
+      ],
+    }
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Billing' }))
+    expect(screen.getByText('Whole project')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show items of Billing' }))
+    expect(screen.getByRole('checkbox', { name: 'Flow' })).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Flow' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    await waitFor(() => expect(api.create.mutate).toHaveBeenCalled())
+    expect(api.create.mutate.mock.calls[0]?.[0]).toMatchObject({
+      restrictions: { projects: [{ projectId: PROJECT_ID, itemIds: [ITEM_ID] }] },
+    })
+  })
+
+  it('shows the item limit on the project row', async () => {
+    api.project.data = {
+      items: Array.from({ length: API_KEY_SCOPE_MAX_ITEMS + 2 }, (_, index) => ({
+        id: `item-${index}`,
+        name: `Item ${index}`,
+      })),
+    }
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Billing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show items of Billing' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Item 0' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    expect(
+      await screen.findByText(`Select at most ${API_KEY_SCOPE_MAX_ITEMS} items`),
+    ).toBeInTheDocument()
+    expect(api.create.mutate).not.toHaveBeenCalled()
   })
 
   it('requires a project when access is limited', async () => {
@@ -250,5 +309,16 @@ describe('ApiKeysSection', () => {
 
     await waitFor(() => expect(api.create.mutate).toHaveBeenCalled())
     expect(api.create.mutate.mock.calls[0]?.[0]).toMatchObject({ expiresOn: apiKeyDateInDays(30) })
+  })
+
+  it('clears the chosen expiry date', async () => {
+    render(<ApiKeysSection />)
+    const date = screen.getByLabelText(/Expires on/)
+    fireEvent.change(date, { target: { value: apiKeyDateInDays(30) } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear the expiry date' }))
+
+    await waitFor(() => expect(date).toHaveValue(''))
+    expect(screen.getByRole('button', { name: 'Clear the expiry date' })).toBeDisabled()
   })
 })

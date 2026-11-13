@@ -1,9 +1,24 @@
 import type { ApiKeyProjectScope } from '@docgraph/common/schemas'
-import { useId } from 'react'
+import { ChevronRight } from 'lucide-react'
+import { useId, useState } from 'react'
+import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldError, FieldLabel } from '@/components/ui/field'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useProjectGetById } from '@/lib/api'
+import { cn } from '@/lib/utils'
+
+/**
+ * The vendored checkbox only styles the checked state and always shows a check icon; for a partial
+ * selection this hides the icon and draws a dash. Relies on Base UI's `data-indeterminate`.
+ */
+const INDETERMINATE_CLASSES =
+  'data-indeterminate:border-primary data-indeterminate:bg-primary data-indeterminate:text-primary-foreground data-indeterminate:before:h-0.5 data-indeterminate:before:w-2 data-indeterminate:before:rounded-full data-indeterminate:before:bg-current [&[data-indeterminate]_svg]:hidden'
+
+const describeScope = (scope: ApiKeyProjectScope | undefined) => {
+  if (!scope) return undefined
+  if (!scope.itemIds) return 'Whole project'
+  return `${scope.itemIds.length} ${scope.itemIds.length === 1 ? 'item' : 'items'}`
+}
 
 export type ApiKeyProjectScopeFieldProps = {
   project: { id: string; name: string }
@@ -13,7 +28,10 @@ export type ApiKeyProjectScopeFieldProps = {
   itemsError?: string
 }
 
-/** A project in an API key's access: off, the whole project, or only some of its items. */
+/**
+ * A project in an API key's access, as a tree: the project checkbox selects the whole project
+ * (including items added later); checking only some of its items limits the key to them.
+ */
 export const ApiKeyProjectScopeField = ({
   project,
   scope,
@@ -21,77 +39,71 @@ export const ApiKeyProjectScopeField = ({
   itemsError,
 }: ApiKeyProjectScopeFieldProps) => {
   const id = useId()
-  const itemIds = scope?.itemIds
-  const { data: details } = useProjectGetById(project.id, { getItems: true }, Boolean(itemIds))
+  const [isExpanded, setExpanded] = useState(false)
+  const { data: details } = useProjectGetById(project.id, { getItems: true }, isExpanded)
+  const items = details?.items ?? []
+  const isWholeProject = Boolean(scope && !scope.itemIds)
+
+  const isItemSelected = (itemId: string) =>
+    isWholeProject || Boolean(scope?.itemIds?.includes(itemId))
 
   const toggleItem = (itemId: string, checked: boolean) => {
-    const selected = itemIds ?? []
-    onChange({
-      projectId: project.id,
-      itemIds: checked ? [...selected, itemId] : selected.filter((id) => id !== itemId),
-    })
+    const selected = items.map((item) => item.id).filter(isItemSelected)
+    const itemIds = checked ? [...selected, itemId] : selected.filter((id) => id !== itemId)
+    onChange(itemIds.length > 0 ? { projectId: project.id, itemIds } : undefined)
   }
 
   return (
-    <li className='flex flex-col gap-2 px-3 py-2'>
-      <Field orientation='horizontal'>
-        <Checkbox
-          id={`${id}-project`}
-          checked={Boolean(scope)}
-          onCheckedChange={(checked) => onChange(checked ? { projectId: project.id } : undefined)}
-        />
-        <FieldLabel htmlFor={`${id}-project`} className='min-w-0 truncate'>
-          {project.name}
-        </FieldLabel>
-      </Field>
+    <li className='flex flex-col py-1'>
+      <div className='flex items-center gap-1 pr-3 pl-1'>
+        <Button
+          type='button'
+          variant='ghost'
+          size='icon-xs'
+          aria-label={`${isExpanded ? 'Hide' : 'Show'} items of ${project.name}`}
+          aria-expanded={isExpanded}
+          onClick={() => setExpanded(!isExpanded)}
+        >
+          <ChevronRight className={cn('transition-transform', isExpanded && 'rotate-90')} />
+        </Button>
+        <Field orientation='horizontal' className='min-w-0 flex-1'>
+          <Checkbox
+            id={`${id}-project`}
+            checked={isWholeProject}
+            indeterminate={Boolean(scope?.itemIds)}
+            onCheckedChange={(checked) => onChange(checked ? { projectId: project.id } : undefined)}
+            className={INDETERMINATE_CLASSES}
+          />
+          <FieldLabel htmlFor={`${id}-project`} className='min-w-0 truncate'>
+            {project.name}
+          </FieldLabel>
+        </Field>
+        <span className='shrink-0 text-xs text-muted-foreground'>{describeScope(scope)}</span>
+      </div>
 
-      {scope && (
-        <div className='flex flex-col gap-2 pl-6'>
-          <RadioGroup
-            aria-label={`Access to ${project.name}`}
-            value={itemIds ? 'items' : 'project'}
-            onValueChange={(value) =>
-              onChange(
-                value === 'items'
-                  ? { projectId: project.id, itemIds: [] }
-                  : { projectId: project.id },
-              )
-            }
-          >
-            <Field orientation='horizontal'>
-              <RadioGroupItem id={`${id}-whole`} value='project' />
-              <FieldLabel htmlFor={`${id}-whole`}>Whole project</FieldLabel>
-            </Field>
-            <Field orientation='horizontal'>
-              <RadioGroupItem id={`${id}-items`} value='items' />
-              <FieldLabel htmlFor={`${id}-items`}>Selected items</FieldLabel>
-            </Field>
-          </RadioGroup>
-
-          {itemIds && (
-            <ul className='flex flex-col gap-1.5'>
-              {details?.items?.length === 0 && (
-                <li className='text-xs text-muted-foreground'>This project has no items.</li>
-              )}
-              {details?.items?.map((item) => (
-                <li key={item.id}>
-                  <Field orientation='horizontal'>
-                    <Checkbox
-                      id={`${id}-item-${item.id}`}
-                      checked={itemIds.includes(item.id)}
-                      onCheckedChange={(checked) => toggleItem(item.id, checked)}
-                    />
-                    <FieldLabel htmlFor={`${id}-item-${item.id}`} className='min-w-0 truncate'>
-                      {item.name}
-                    </FieldLabel>
-                  </Field>
-                </li>
-              ))}
-            </ul>
+      {isExpanded && (
+        <ul className='flex flex-col gap-1.5 py-1.5 pr-3 pl-13'>
+          {!details && <li className='text-xs text-muted-foreground'>Loading items…</li>}
+          {details?.items?.length === 0 && (
+            <li className='text-xs text-muted-foreground'>This project has no items.</li>
           )}
-          <FieldError>{itemsError}</FieldError>
-        </div>
+          {items.map((item) => (
+            <li key={item.id}>
+              <Field orientation='horizontal'>
+                <Checkbox
+                  id={`${id}-item-${item.id}`}
+                  checked={isItemSelected(item.id)}
+                  onCheckedChange={(checked) => toggleItem(item.id, checked)}
+                />
+                <FieldLabel htmlFor={`${id}-item-${item.id}`} className='min-w-0 truncate'>
+                  {item.name}
+                </FieldLabel>
+              </Field>
+            </li>
+          ))}
+        </ul>
       )}
+      <FieldError className='pr-3 pl-13'>{itemsError}</FieldError>
     </li>
   )
 }

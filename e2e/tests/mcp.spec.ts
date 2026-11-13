@@ -29,15 +29,16 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
   let profile = await openProfile(page)
   await profile.getByPlaceholder('Key name, e.g. laptop').fill(keyName)
   await profile.getByRole('button', { name: 'Create API key' }).click()
-  await expect(profile.getByText('Copy the API key now')).toBeVisible()
+  const created = page.getByRole('dialog', { name: 'API key created' })
+  await expect(created.getByText('Copy the API key now')).toBeVisible()
 
   // The plain key is shown once, together with a ready-made Claude Code command
-  const apiKey = (await profile.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
+  const apiKey = (await created.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
   expect(apiKey).toMatch(/^dg_\S+$/)
-  await expect(profile.locator('code').filter({ hasText: 'claude mcp add' })).toContainText(
+  await expect(created.locator('code').filter({ hasText: 'claude mcp add' })).toContainText(
     `--transport http docgraph ${BASE_URL}/mcp --header "x-api-key: ${apiKey}"`,
   )
-  await profile.getByRole('button', { name: 'Done' }).click()
+  await created.getByRole('button', { name: 'Done' }).click()
   // Other specs create keys for the same user in parallel, so look at this key's row only
   const keyRow = (dialog: Locator) => dialog.getByRole('listitem').filter({ hasText: keyName })
   await expect(keyRow(profile)).toContainText('Last used never')
@@ -138,13 +139,13 @@ test('a read-only API key limited to selected items reaches only them', async ({
   await profile.getByLabel('Expires on').fill(dateInDays(30))
   await profile.getByRole('checkbox', { name: /Read-only/ }).click()
   await profile.getByRole('radio', { name: 'Selected projects and items' }).click()
-  await profile.getByRole('checkbox', { name: project.name }).click()
-  await profile.getByRole('radio', { name: 'Selected items' }).click()
+  await profile.getByRole('button', { name: `Show items of ${project.name}` }).click()
   await profile.getByRole('checkbox', { name: allowed.name }).click()
   await profile.getByRole('button', { name: 'Create API key' }).click()
 
-  const apiKey = (await profile.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
-  await profile.getByRole('button', { name: 'Done' }).click()
+  const created = page.getByRole('dialog', { name: 'API key created' })
+  const apiKey = (await created.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
+  await created.getByRole('button', { name: 'Done' }).click()
   const keyRow = profile.getByRole('listitem').filter({ hasText: keyName })
   await expect(keyRow).toContainText(`Read-only · ${project.name} (1 item)`)
   await expect(keyRow).toContainText('Expires ')

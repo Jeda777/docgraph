@@ -1,7 +1,14 @@
 import type { ApiKeyCreateInput, ApiKeyProjectScope } from '@docgraph/common/schemas'
 import { useId } from 'react'
 import { useController, useFormContext, useFormState } from 'react-hook-form'
-import { Field, FieldError, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '@/components/ui/field'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useProjectGetList } from '@/lib/api'
 import { ApiKeyProjectScopeField } from './api-key-project-scope-field'
@@ -47,17 +54,23 @@ export const ApiKeyScopeField = () => {
       </RadioGroup>
 
       {selected && (
-        <ul className='flex max-h-60 flex-col divide-y overflow-y-auto rounded-lg border'>
-          {projects.map((project) => (
-            <ApiKeyProjectScopeField
-              key={project.id}
-              project={project}
-              scope={selected.find((entry) => entry.projectId === project.id)}
-              onChange={(scope) => setScope(project.id, scope)}
-              itemsError={itemsError(project.id)}
-            />
-          ))}
-        </ul>
+        <>
+          <FieldDescription>
+            A checked project includes items added later. Expand a project to pick only some of its
+            items; checking the project again selects all of them.
+          </FieldDescription>
+          <ul className='flex max-h-72 flex-col divide-y overflow-y-auto rounded-lg border'>
+            {projects.map((project) => (
+              <ApiKeyProjectScopeField
+                key={project.id}
+                project={project}
+                scope={selected.find((entry) => entry.projectId === project.id)}
+                onChange={(scope) => setScope(project.id, scope)}
+                itemsError={itemsError(project.id)}
+              />
+            ))}
+          </ul>
+        </>
       )}
       <FieldError>{error?.message ?? error?.root?.message}</FieldError>
     </FieldSet>
