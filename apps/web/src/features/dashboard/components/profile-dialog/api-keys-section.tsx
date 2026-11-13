@@ -1,22 +1,34 @@
 import {
   API_KEY_HEADER,
+  API_KEY_MAX_EXPIRATION_DAYS,
   type ApiKey,
   type ApiKeyCreateInput,
   apiKeyCreateInputSchema,
+  apiKeyDateInDays,
+  UNRESTRICTED_API_KEY,
 } from '@docgraph/common/schemas'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Copy, Trash2 } from 'lucide-react'
 import { useState } from 'react'
 import { FormProvider, useForm } from 'react-hook-form'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { FormCheckbox } from '@/components/form/form-checkbox'
 import { FormInput } from '@/components/form/form-input'
 import { Button } from '@/components/ui/button'
 import { toast } from '@/components/ui/toast'
-import { useApiKeyCreate, useApiKeyDelete, useApiKeyGetList } from '@/lib/api'
+import { useApiKeyCreate, useApiKeyDelete, useApiKeyGetList, useProjectGetList } from '@/lib/api'
 import { showErrorToast } from '@/lib/error-toast'
 import { formatDate } from '@/lib/utils'
+import { ApiKeyScopeField } from './api-key-scope-field'
+import { describeApiKeyAccess, describeApiKeyExpiry } from './api-keys.helpers'
 
 const MCP_URL = `${location.origin}/mcp`
+
+const DEFAULT_VALUES: ApiKeyCreateInput = {
+  name: '',
+  expiresOn: '',
+  restrictions: UNRESTRICTED_API_KEY,
+}
 
 const copy = async (text: string) => {
   try {
@@ -58,12 +70,16 @@ const CopyBlock = ({ label, value }: CopyBlockProps) => (
  */
 export const ApiKeysSection = () => {
   const { data: apiKeys } = useApiKeyGetList()
+  const hasRestrictedKeys = Boolean(apiKeys?.some((apiKey) => apiKey.restrictions.projects))
+  const { data: projects = [] } = useProjectGetList(hasRestrictedKeys)
+  const projectNames = new Map(projects.map((project) => [project.id, project.name]))
   const { mutate: create, isPending: isCreating } = useApiKeyCreate()
   const { mutate: remove, isPending: isDeleting } = useApiKeyDelete()
   const [createdKey, setCreatedKey] = useState<string>()
   const [keyToDelete, setKeyToDelete] = useState<ApiKey>()
   const form = useForm<ApiKeyCreateInput>({
     resolver: zodResolver(apiKeyCreateInputSchema),
+    defaultValues: DEFAULT_VALUES,
   })
 
   const onSubmit = (data: ApiKeyCreateInput) => {
@@ -121,11 +137,25 @@ export const ApiKeysSection = () => {
       )}
 
       <FormProvider {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className='flex items-start gap-2'>
-          <div className='flex-1'>
-            <FormInput<ApiKeyCreateInput> name='name' placeholder='Key name, e.g. laptop' />
-          </div>
-          <Button type='submit' disabled={isCreating}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className='flex flex-col gap-3'>
+          <FormInput<ApiKeyCreateInput>
+            name='name'
+            label='Name'
+            placeholder='Key name, e.g. laptop'
+          />
+          <FormInput<ApiKeyCreateInput>
+            name='expiresOn'
+            label='Expires on (leave empty to never expire)'
+            type='date'
+            min={apiKeyDateInDays(1)}
+            max={apiKeyDateInDays(API_KEY_MAX_EXPIRATION_DAYS)}
+          />
+          <FormCheckbox<ApiKeyCreateInput>
+            name='restrictions.readOnly'
+            label='Read-only (agents can read but not create or change anything)'
+          />
+          <ApiKeyScopeField />
+          <Button type='submit' disabled={isCreating} className='self-start'>
             Create API key
           </Button>
         </form>
@@ -142,6 +172,12 @@ export const ApiKeysSection = () => {
                 </p>
                 <p className='text-xs text-muted-foreground'>
                   Last used {apiKey.lastUsedAt ? formatDate(apiKey.lastUsedAt) : 'never'}
+                </p>
+                <p className='text-xs text-muted-foreground my-px'>
+                  {describeApiKeyAccess(apiKey.restrictions, projectNames)}
+                </p>
+                <p className='text-xs text-muted-foreground'>
+                  {describeApiKeyExpiry(apiKey.expiresAt)}
                 </p>
               </div>
               <Button

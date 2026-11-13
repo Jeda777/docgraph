@@ -2,11 +2,13 @@ import { API_KEY_HEADER } from '@docgraph/common/schemas'
 import { createMiddleware } from 'hono/factory'
 import type { User } from '../../db'
 import { ForbiddenException, UnauthorizedException } from '../../errors'
+import type { Actor } from './actor'
 import { getUserFromApiKey, getUserFromHeaders } from './service'
 
 type MiddlewareContext = {
   Variables: {
-    user: User
+    /** `apiKeyRestrictions` is set only by `requireApiKey`. */
+    user: User & Pick<Actor, 'apiKeyRestrictions'>
   }
 }
 

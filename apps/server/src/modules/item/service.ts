@@ -2,13 +2,15 @@ import type { ItemCreateInput, ItemUpdateInput } from '@docgraph/common/schemas'
 import { closeItemConnections } from '../../crdt'
 import { db, type ItemUpdate } from '../../db'
 import type { Actor } from '../auth/actor'
+import { assertKeyCanWrite } from '../auth/api-key-scope'
 import { requireProjectAccess } from '../project/access'
 import { requireItemAccess } from './access'
 import { itemRepository } from './repo'
 
 export const createItem = async ({ name, type, projectId }: ItemCreateInput, actor: Actor) =>
   db.transaction(async (tx) => {
-    await requireProjectAccess(projectId, actor, { tx })
+    assertKeyCanWrite(actor)
+    await requireProjectAccess(projectId, actor, { tx, wholeProject: true })
 
     return itemRepository.create({ name, type, projectId }, tx)
   })
@@ -23,6 +25,7 @@ export const updateItem = async (
   actor: Actor,
 ) => {
   const { item, archiveChanged } = await db.transaction(async (tx) => {
+    assertKeyCanWrite(actor)
     const { item } = await requireItemAccess(id, actor, { tx })
 
     const changes: ItemUpdate = {}
@@ -47,6 +50,7 @@ export const updateItem = async (
 
 export const deleteItem = async (id: string, actor: Actor) => {
   await db.transaction(async (tx) => {
+    assertKeyCanWrite(actor)
     await requireItemAccess(id, actor, { tx })
 
     await itemRepository.delete(id, tx)

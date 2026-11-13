@@ -1,7 +1,9 @@
+import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { apiKeys, db } from '../../db'
 import { handleError } from '../../lib/http-logging'
-import { createUser, migrateTestDb, resetTestDb, sessionCookieFor } from '../../test/db'
+import { createUser, MISSING_ID, migrateTestDb, resetTestDb, sessionCookieFor } from '../../test/db'
 import { API_KEY_PREFIX } from './better-auth'
 import { authRouter } from './routes'
 import { getUserFromApiKey } from './service'
@@ -27,8 +29,8 @@ const signIn = async () => {
 
 type CreatedKey = { id: string; key: string; name: string }
 
-const createKey = async (cookie: string, name = 'agent') => {
-  const res = await request('/create', cookie, { name })
+const createKey = async (cookie: string, name = 'agent', options: Record<string, unknown> = {}) => {
+  const res = await request('/create', cookie, { name, ...options })
   expect(res.status).toBe(200)
   return (await res.json()) as CreatedKey
 }
@@ -96,5 +98,93 @@ describe('API keys', () => {
       status: 401,
     })
     await expect(getUserFromApiKey(undefined)).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('gives keys without restrictions the full access of their owner', async () => {
+    const { cookie } = await signIn()
+    const created = await createKey(cookie)
+
+    await expect(getUserFromApiKey(created.key)).resolves.toMatchObject({
+      apiKeyRestrictions: { readOnly: false, projects: null },
+    })
+  })
+
+  it('stores the restrictions of a key', async () => {
+    const { cookie } = await signIn()
+    const restrictions = {
+      readOnly: true,
+      projects: [{ projectId: MISSING_ID, itemIds: [MISSING_ID] }],
+    }
+
+    const created = await createKey(cookie, 'agent', { metadata: restrictions })
+
+    await expect(getUserFromApiKey(created.key)).resolves.toMatchObject({
+      apiKeyRestrictions: restrictions,
+    })
+  })
+
+  it('rejects invalid restrictions', async () => {
+    const { cookie } = await signIn()
+
+    for (const metadata of [
+      { readOnly: 'yes', projects: null },
+      { readOnly: false, projects: [] },
+      { readOnly: false, projects: [{ projectId: MISSING_ID, itemIds: [] }] },
+      { readOnly: false, projects: [{ projectId: MISSING_ID }, { projectId: MISSING_ID }] },
+    ]) {
+      const res = await request('/create', cookie, { name: 'agent', metadata })
+      expect(res.status).toBe(400)
+    }
+  })
+
+  it('refuses a key whose stored restrictions are unreadable', async () => {
+    const { cookie } = await signIn()
+    const created = await createKey(cookie)
+    await db
+      .update(apiKeys)
+      .set({ metadata: JSON.stringify({ readOnly: 'maybe' }) })
+      .where(eq(apiKeys.id, created.id))
+
+    await expect(getUserFromApiKey(created.key)).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('does not let keys be updated', async () => {
+    const { cookie } = await signIn()
+    const created = await createKey(cookie, 'agent', {
+      metadata: { readOnly: true, projects: null },
+    })
+
+    const res = await request('/update', cookie, {
+      keyId: created.id,
+      metadata: { readOnly: false, projects: null },
+    })
+
+    expect(res.status).toBe(404)
+    await expect(getUserFromApiKey(created.key)).resolves.toMatchObject({
+      apiKeyRestrictions: { readOnly: true },
+    })
+  })
+
+  it('sets the expiry and stops accepting expired keys', async () => {
+    const { cookie } = await signIn()
+    const created = await createKey(cookie, 'agent', { expiresIn: 7 * 24 * 60 * 60 })
+
+    const [row] = await db.select().from(apiKeys).where(eq(apiKeys.id, created.id))
+    expect(row?.expiresAt?.getTime()).toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000)
+
+    await db
+      .update(apiKeys)
+      .set({ expiresAt: new Date(Date.now() - 1000) })
+      .where(eq(apiKeys.id, created.id))
+    await expect(getUserFromApiKey(created.key)).rejects.toMatchObject({ status: 401 })
+  })
+
+  it('rejects expiry beyond the allowed range', async () => {
+    const { cookie } = await signIn()
+
+    for (const expiresIn of [60 * 60, 400 * 24 * 60 * 60]) {
+      const res = await request('/create', cookie, { name: 'agent', expiresIn })
+      expect(res.status).toBe(400)
+    }
   })
 })

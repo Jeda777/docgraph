@@ -1,6 +1,12 @@
 import { apiKey } from '@better-auth/api-key'
 import { drizzleAdapter } from '@better-auth/drizzle-adapter/relations-v2'
-import { API_KEY_NAME_MAX_LENGTH, OTP_CODE_LENGTH, passwordSchema } from '@docgraph/common/schemas'
+import {
+  API_KEY_MAX_EXPIRATION_DAYS,
+  API_KEY_NAME_MAX_LENGTH,
+  apiKeyRestrictionsSchema,
+  OTP_CODE_LENGTH,
+  passwordSchema,
+} from '@docgraph/common/schemas'
 import * as argon2 from 'argon2'
 import { betterAuth } from 'better-auth'
 import { APIError, createAuthMiddleware } from 'better-auth/api'
@@ -22,6 +28,27 @@ export const API_KEY_PREFIX = 'dg_'
 const PASSWORD_FIELDS: Partial<Record<string, string>> = {
   '/email-otp/reset-password': 'password',
   '/change-password': 'newPassword',
+}
+
+const validationFailed = (message = 'Invalid request') =>
+  new APIError('BAD_REQUEST', { code: 'VALIDATION_FAILED', message })
+
+/** Passwords must satisfy `passwordSchema`, not only the plugin's length check. */
+const validatePassword = (path: string, body: Record<string, unknown> | undefined) => {
+  const field = PASSWORD_FIELDS[path]
+  if (!field) return
+  const result = passwordSchema.safeParse(body?.[field])
+  if (!result.success) throw validationFailed(result.error.issues[0]?.message)
+}
+
+/**
+ * The plugin stores any object as metadata; ours holds the key's restrictions, so it must match
+ * `apiKeyRestrictionsSchema`. Keys created without metadata are unrestricted.
+ */
+const validateApiKeyRestrictions = (path: string, body: Record<string, unknown> | undefined) => {
+  if (path !== '/api-key/create' || body?.metadata === undefined) return
+  const result = apiKeyRestrictionsSchema.safeParse(body.metadata)
+  if (!result.success) throw validationFailed(result.error.issues[0]?.message)
 }
 
 /**
@@ -63,6 +90,13 @@ export const auth = betterAuth({
       maximumNameLength: API_KEY_NAME_MAX_LENGTH,
       // Agents call MCP tools in bursts; the plugin's default is 10 requests a day.
       rateLimit: { enabled: false },
+      // Holds the key's restrictions (`apiKeyRestrictionsSchema`), checked on create.
+      enableMetadata: true,
+      keyExpiration: {
+        minExpiresIn: 1,
+        // In days; the end of the last day the web offers lies up to a day past the maximum.
+        maxExpiresIn: API_KEY_MAX_EXPIRATION_DAYS + 1,
+      },
       // `usePlural` makes the adapter look up `apiKeys` in the Drizzle schema.
       schema: { apikey: { modelName: 'apiKey' } },
     }),
@@ -73,15 +107,8 @@ export const auth = betterAuth({
   },
   hooks: {
     before: createAuthMiddleware(async (ctx) => {
-      const field = PASSWORD_FIELDS[ctx.path]
-      if (!field) return
-      const result = passwordSchema.safeParse(ctx.body?.[field])
-      if (!result.success) {
-        throw new APIError('BAD_REQUEST', {
-          code: 'VALIDATION_FAILED',
-          message: result.error.issues[0]?.message ?? 'Invalid password',
-        })
-      }
+      validatePassword(ctx.path, ctx.body)
+      validateApiKeyRestrictions(ctx.path, ctx.body)
     }),
   },
   advanced: {
@@ -92,6 +119,8 @@ export const auth = betterAuth({
   },
   // Would let users set any name or image without validation; the app has no profile editing,
   // names come from the admin's invite (`POST /api/users`).
-  disabledPaths: ['/update-user'],
+  // A key's restrictions and expiry are fixed at creation; the app never edits keys, and the
+  // update endpoint would skip the restriction checks of the create hook.
+  disabledPaths: ['/update-user', '/api-key/update'],
   telemetry: { enabled: false },
 })

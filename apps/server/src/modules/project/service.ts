@@ -6,6 +6,7 @@ import type {
 import { closeProjectConnections } from '../../crdt'
 import { db, type ProjectUpdate } from '../../db'
 import type { Actor } from '../auth/actor'
+import { filterItemsInKeyScope } from '../auth/api-key-scope'
 import { itemRepository } from '../item/repo'
 import { userRepository } from '../user/repo'
 import { requireProjectAccess } from './access'
@@ -19,7 +20,9 @@ export const getProjectById = async (
 
   const members = getMembers ? await projectRepository.getMembers(id) : undefined
 
-  const projectItems = getItems ? await itemRepository.findAllByProjectId(id) : undefined
+  const projectItems = getItems
+    ? filterItemsInKeyScope(actor, id, await itemRepository.findAllByProjectId(id))
+    : undefined
 
   return { ...project, members, items: projectItems }
 }
