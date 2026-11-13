@@ -9,7 +9,8 @@ General conventions: [root `AGENTS.md`](../../AGENTS.md).
   - `modules/project/access.ts` — project visibility (`requireProjectAccess` for single rows, `visibilityWhere` for lists); no access → 404, never 403.
   - `modules/item/access.ts` — `requireItemAccess` for single items (404 names only the item, never its project); don't pair `getByIdWithoutDocument` with `requireProjectAccess` yourself.
   - `modules/item/document-store.ts` — the only reader/writer of `items.document` (CRDT blob); decides read-only.
-  - `modules/auth/middleware.ts` — `requireAuth`, `requireAdmin`, `requireApiKey` (`x-api-key`, for `/mcp`); never reimplement auth checks.
+  - `modules/auth/middleware.ts` — `requireAuth`, `requireAdmin`, `requireApiKey` (`x-api-key`, for `/mcp`; also sets the key's `apiKeyRestrictions` on the actor); never reimplement auth checks.
+  - `modules/auth/api-key-scope.ts` — API key restrictions (read-only, project/item scope); the access owners above and the write paths (`createItem`, `writeItemDocument`) call it — never check `apiKeyRestrictions` elsewhere.
   - `modules/auth/better-auth.ts` — sessions, login, password reset, API keys under `/api/auth/*`; no hand-written auth endpoints.
   - `src/lib/security.ts` — security headers (CSP: scripts from the app origin only) and body/WebSocket size limits; read its JSDoc before changing limits or embedding server files elsewhere.
 - Server-side editing of item content lives in domain modules — `modules/item/item-document.ts`, `modules/diagram`, `modules/document` — never in `modules/mcp`, which only registers tools (`server.ts`) and mounts the handler (`routes.ts`). `modules/diagram` and `modules/document` have no routes/repo and name files `<subject>.<layer>.ts` (e.g. `database-diagram.service.ts`).

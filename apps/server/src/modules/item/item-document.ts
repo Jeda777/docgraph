@@ -5,6 +5,7 @@ import { crdt } from '../../crdt'
 import type { Item } from '../../db'
 import { BadRequestException, InternalServerErrorException } from '../../errors'
 import type { Actor } from '../auth/actor'
+import { assertKeyCanWrite } from '../auth/api-key-scope'
 import { getItemDocumentAccess, isItemReadOnly, loadItemDocument } from './document-store'
 import { getItemById } from './service'
 
@@ -63,6 +64,7 @@ export const writeItemDocument = async <T extends ItemType, R>(
   actor: Actor,
   write: (doc: Doc, item: ItemOfType<T>) => R,
 ) => {
+  assertKeyCanWrite(actor)
   const access = await getItemDocumentAccess(itemId, actor)
   const item = withType(access.item, expected)
   if (access.readOnly) {

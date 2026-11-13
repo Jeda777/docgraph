@@ -1,4 +1,10 @@
-import { API_ERROR_CODES, type ApiErrorCode } from '@docgraph/common/schemas'
+import {
+  API_ERROR_CODES,
+  type ApiErrorCode,
+  type ApiKeyRestrictions,
+  apiKeyRestrictionsSchema,
+  UNRESTRICTED_API_KEY,
+} from '@docgraph/common/schemas'
 import type { ContentfulStatusCode } from 'hono/utils/http-status'
 import type { User } from '../../db'
 import {
@@ -92,11 +98,21 @@ export const getUserFromHeaders = async (headers: Headers): Promise<User> =>
 
 const INVALID_API_KEY_MESSAGE = 'Invalid API key'
 
+/** Keys created before restrictions existed have no metadata and keep their full access. */
+const parseRestrictions = (metadata: unknown): ApiKeyRestrictions | undefined => {
+  if (metadata == null) return UNRESTRICTED_API_KEY
+  const result = apiKeyRestrictionsSchema.safeParse(metadata)
+  return result.success ? result.data : undefined
+}
+
 /**
- * The owner of a personal API key. Better Auth checks the hash, `enabled` and expiry, and records
- * the use in `lastRequest`.
+ * The owner of a personal API key with the key's restrictions. Better Auth checks the hash,
+ * `enabled` and expiry, and records the use in `lastRequest`. A key whose restrictions can't be
+ * read is refused rather than given full access.
  */
-export const getUserFromApiKey = async (key?: string): Promise<User> => {
+export const getUserFromApiKey = async (
+  key?: string,
+): Promise<User & { apiKeyRestrictions: ApiKeyRestrictions }> => {
   if (!key) throw new UnauthorizedException('UNAUTHORIZED', INVALID_API_KEY_MESSAGE)
 
   const result = await auth.api.verifyApiKey({ body: { key } })
@@ -104,8 +120,11 @@ export const getUserFromApiKey = async (key?: string): Promise<User> => {
     throw new UnauthorizedException('UNAUTHORIZED', INVALID_API_KEY_MESSAGE)
   }
 
+  const apiKeyRestrictions = parseRestrictions(result.key.metadata)
+  if (!apiKeyRestrictions) throw new UnauthorizedException('UNAUTHORIZED', INVALID_API_KEY_MESSAGE)
+
   const user = await userRepository.findById(result.key.referenceId)
   if (!user) throw new UnauthorizedException('UNAUTHORIZED', INVALID_API_KEY_MESSAGE)
 
-  return user
+  return { ...user, apiKeyRestrictions }
 }

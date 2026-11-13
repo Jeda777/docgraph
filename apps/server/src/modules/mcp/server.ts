@@ -48,6 +48,9 @@ In update_database_schema and update_diagram, prefer mode "merge" for partial ch
 
 Documents are read and written as Markdown with get_document, update_document and create_document. update_document has no partial mode: "append" adds Markdown at the end, "replace" overwrites the whole document. To change part of a document, read it with get_document, edit the Markdown and write all of it back with "replace".`
 
+const READ_ONLY_INSTRUCTIONS =
+  'This API key is read-only: only the reading tools are available, nothing can be created or changed.'
+
 const typeNamesHelp = (type: DiagramGraphType) => {
   const names = diagramGraphTypeNames(type)
   return `- ${type} nodes: ${names.nodes.join(', ')}. Edges: ${names.edges.join(', ')} (default ${names.defaultEdge}).`
@@ -72,12 +75,14 @@ const schemaInput = {
 
 /**
  * A fresh MCP server per request, bound to the caller — the endpoint is
- * stateless, so every tool runs with the permissions of the token's owner.
+ * stateless, so every tool runs with the permissions of the token's owner,
+ * narrowed by the key's restrictions.
  */
 export const createMcpServer = (actor: Actor) => {
+  const readOnly = Boolean(actor.apiKeyRestrictions?.readOnly)
   const server = new McpServer(
     { name: SERVER_NAME, version: SERVER_VERSION },
-    { instructions: INSTRUCTIONS },
+    { instructions: readOnly ? `${INSTRUCTIONS} ${READ_ONLY_INSTRUCTIONS}` : INSTRUCTIONS },
   )
 
   server.registerTool(
@@ -137,7 +142,7 @@ export const createMcpServer = (actor: Actor) => {
     },
   )
 
-  server.registerTool(
+  const updateDatabaseSchemaTool = server.registerTool(
     'update_database_schema',
     {
       title: 'Update database diagram',
@@ -156,7 +161,7 @@ export const createMcpServer = (actor: Actor) => {
     },
   )
 
-  server.registerTool(
+  const createDatabaseDiagramTool = server.registerTool(
     'create_database_diagram',
     {
       title: 'Create database diagram',
@@ -191,7 +196,7 @@ export const createMcpServer = (actor: Actor) => {
     },
   )
 
-  server.registerTool(
+  const updateDiagramTool = server.registerTool(
     'update_diagram',
     {
       title: 'Update flowchart or business process',
@@ -209,7 +214,7 @@ export const createMcpServer = (actor: Actor) => {
     },
   )
 
-  server.registerTool(
+  const createDiagramTool = server.registerTool(
     'create_diagram',
     {
       title: 'Create flowchart or business process',
@@ -245,7 +250,7 @@ export const createMcpServer = (actor: Actor) => {
     },
   )
 
-  server.registerTool(
+  const updateDocumentTool = server.registerTool(
     'update_document',
     {
       title: 'Update document',
@@ -265,7 +270,7 @@ export const createMcpServer = (actor: Actor) => {
     },
   )
 
-  server.registerTool(
+  const createDocumentTool = server.registerTool(
     'create_document',
     {
       title: 'Create document',
@@ -281,6 +286,19 @@ export const createMcpServer = (actor: Actor) => {
       return json({ item: { id: item.id, name: item.name, type: item.type } })
     },
   )
+
+  // Disabled tools are not listed and refuse calls; the services refuse writes as well.
+  if (readOnly) {
+    for (const tool of [
+      updateDatabaseSchemaTool,
+      createDatabaseDiagramTool,
+      updateDiagramTool,
+      createDiagramTool,
+      updateDocumentTool,
+      createDocumentTool,
+    ])
+      tool.disable()
+  }
 
   return server
 }

@@ -16,23 +16,25 @@ export const ProfileDialog = ({ isOpen, setOpen }: ProfileDialogProps) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => setOpen(open)}>
-      <DialogContent className='max-h-[calc(100dvh-2rem)] overflow-y-auto'>
+      <DialogContent className='max-h-[calc(100dvh-2rem)] overflow-y-auto md:max-w-3xl'>
         <DialogHeader>
           <DialogTitle>Profile</DialogTitle>
         </DialogHeader>
 
         <div className='flex flex-col gap-5'>
-          <div className='flex items-center gap-3'>
-            <Avatar className='size-12'>
-              <AvatarFallback>{name && getUserInitials(name)}</AvatarFallback>
-            </Avatar>
-            <div className='min-w-0'>
-              <p className='truncate font-semibold'>{name}</p>
-              <p className='truncate text-sm text-muted-foreground'>{email}</p>
+          <div className='grid gap-5 md:grid-cols-2 md:items-start'>
+            <div className='flex items-center gap-3'>
+              <Avatar className='size-12'>
+                <AvatarFallback>{name && getUserInitials(name)}</AvatarFallback>
+              </Avatar>
+              <div className='min-w-0'>
+                <p className='truncate font-semibold'>{name}</p>
+                <p className='truncate text-sm text-muted-foreground'>{email}</p>
+              </div>
             </div>
+            <Separator className='md:hidden' />
+            <PasswordChangeSection />
           </div>
-          <Separator />
-          <PasswordChangeSection />
           <Separator />
           <ApiKeysSection />
         </div>

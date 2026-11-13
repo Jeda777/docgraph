@@ -1,3 +1,4 @@
+import type { ApiKeyRestrictions } from '@docgraph/common/schemas'
 import * as argon2 from 'argon2'
 import { makeSignature } from 'better-auth/crypto'
 import { sql } from 'drizzle-orm'
@@ -94,9 +95,15 @@ export const sessionCookieFor = async (userId: string) => {
   return { cookie: `${ctx.authCookies.sessionToken.name}=${session.token}.${signature}` }
 }
 
-/** Creates a personal API key of the user through Better Auth, returning its plain value. */
-export const createApiKeyFor = async (userId: string, name = 'agent') => {
-  const { key } = await auth.api.createApiKey({ body: { name, userId } })
+/**
+ * Creates a personal API key of the user through Better Auth, returning its plain value.
+ * Without `restrictions` the key has the user's full access, like keys created before them.
+ */
+export const createApiKeyFor = async (
+  userId: string,
+  { name = 'agent', restrictions }: { name?: string; restrictions?: ApiKeyRestrictions } = {},
+) => {
+  const { key } = await auth.api.createApiKey({ body: { name, userId, metadata: restrictions } })
   return key
 }
 

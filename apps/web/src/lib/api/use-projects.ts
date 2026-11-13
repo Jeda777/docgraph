@@ -11,13 +11,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from './api'
 import { ITEMS_QUERY_KEY, PROJECT_DETAIL_QUERY_KEY, PROJECTS_QUERY_KEY } from './query-keys'
 
-export const useProjectGetList = () => {
+export const useProjectGetList = (enabled = true) => {
   return useQuery({
     queryKey: PROJECTS_QUERY_KEY,
     queryFn: async () => {
       const res = await api.get<ProjectGetListOutput>('/projects')
       return res.data
     },
+    enabled,
   })
 }
 

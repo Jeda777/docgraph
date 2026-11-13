@@ -1,19 +1,28 @@
+import { API_KEY_SCOPE_MAX_ITEMS, apiKeyDateInDays } from '@docgraph/common/schemas'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const KEY_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T3'
+const PROJECT_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T4'
+const ITEM_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T5'
+const OTHER_ITEM_ID = '01HZX3W5Y8K9M2N4P6Q7R8S9T6'
+const UNRESTRICTED = { readOnly: false, projects: null }
 const PLAIN_KEY = 'dg_secret_value'
 
 const api = vi.hoisted(() => ({
   list: { data: undefined as unknown },
   create: { isPending: false, mutate: vi.fn() },
   remove: { isPending: false, mutate: vi.fn() },
+  projects: { data: undefined as unknown },
+  project: { data: undefined as unknown },
 }))
 
 vi.mock('@/lib/api', () => ({
   useApiKeyGetList: () => api.list,
   useApiKeyCreate: () => api.create,
   useApiKeyDelete: () => api.remove,
+  useProjectGetList: () => api.projects,
+  useProjectGetById: () => api.project,
 }))
 
 const showErrorToast = vi.hoisted(() => vi.fn())
@@ -41,8 +50,17 @@ const createKey = async (name: string) => {
 }
 
 beforeEach(() => {
+  api.projects.data = [{ id: PROJECT_ID, name: 'Billing' }]
+  api.project.data = { items: [{ id: ITEM_ID, name: 'Schema' }] }
   api.list.data = [
-    { id: KEY_ID, name: 'laptop', createdAt: new Date(2026, 0, 1), lastUsedAt: null },
+    {
+      id: KEY_ID,
+      name: 'laptop',
+      createdAt: new Date(2026, 0, 1),
+      lastUsedAt: null,
+      expiresAt: null,
+      restrictions: UNRESTRICTED,
+    },
   ]
   api.create.isPending = false
   api.create.mutate.mockReset()
@@ -74,6 +92,7 @@ describe('ApiKeysSection', () => {
     render(<ApiKeysSection />)
 
     expect(screen.queryByRole('list')).not.toBeInTheDocument()
+    expect(screen.getByText('No API keys yet.')).toBeInTheDocument()
   })
 
   it('does not create a key without a name', async () => {
@@ -89,7 +108,11 @@ describe('ApiKeysSection', () => {
     render(<ApiKeysSection />)
     await createKey('desktop')
 
-    expect(api.create.mutate.mock.calls[0]?.[0]).toEqual({ name: 'desktop' })
+    expect(api.create.mutate.mock.calls[0]?.[0]).toEqual({
+      name: 'desktop',
+      expiresOn: '',
+      restrictions: UNRESTRICTED,
+    })
     act(() => lastOptions(api.create.mutate)?.onSuccess?.({ key: PLAIN_KEY }))
 
     expect(screen.getByText(/it will not be shown again/)).toBeInTheDocument()
@@ -101,6 +124,18 @@ describe('ApiKeysSection', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(screen.queryByText(PLAIN_KEY)).not.toBeInTheDocument()
+  })
+
+  it('closes the created key on a backdrop click', async () => {
+    render(<ApiKeysSection />)
+    await createKey('desktop')
+    act(() => lastOptions(api.create.mutate)?.onSuccess?.({ key: PLAIN_KEY }))
+
+    const backdrop = document.querySelector('[data-slot="dialog-overlay"]')
+    if (!backdrop) throw new Error('No backdrop')
+    fireEvent.click(backdrop)
+
+    await waitFor(() => expect(screen.queryByText(PLAIN_KEY)).not.toBeInTheDocument())
   })
 
   it('copies the created key to the clipboard', async () => {
@@ -165,5 +200,125 @@ describe('ApiKeysSection', () => {
 
     expect(showErrorToast).toHaveBeenCalledWith('Could not revoke the API key', error)
     expect(screen.getByText(/Agents using "laptop"/)).toBeInTheDocument()
+  })
+
+  it('describes the access and expiry of keys', () => {
+    api.list.data = [
+      {
+        id: KEY_ID,
+        name: 'ci',
+        createdAt: new Date(2026, 0, 1),
+        lastUsedAt: null,
+        expiresAt: new Date(2000, 0, 1),
+        restrictions: { readOnly: true, projects: [{ projectId: PROJECT_ID, itemIds: [ITEM_ID] }] },
+      },
+    ]
+    render(<ApiKeysSection />)
+
+    expect(screen.getByText('Read-only · Billing (1 item)')).toBeInTheDocument()
+    expect(screen.getByText(/^Expired /)).toBeInTheDocument()
+  })
+
+  it('creates a read-only key limited to selected items', async () => {
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.click(screen.getByRole('checkbox', { name: /Read-only/ }))
+    fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show items of Billing' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Schema' }))
+
+    expect(screen.getByRole('checkbox', { name: 'Billing' })).toHaveAttribute(
+      'aria-checked',
+      'mixed',
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    await waitFor(() => expect(api.create.mutate).toHaveBeenCalled())
+    expect(api.create.mutate.mock.calls[0]?.[0]).toEqual({
+      name: 'ci',
+      expiresOn: '',
+      restrictions: { readOnly: true, projects: [{ projectId: PROJECT_ID, itemIds: [ITEM_ID] }] },
+    })
+  })
+
+  it('narrows a whole project to the items left checked', async () => {
+    api.project.data = {
+      items: [
+        { id: ITEM_ID, name: 'Schema' },
+        { id: OTHER_ITEM_ID, name: 'Flow' },
+      ],
+    }
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Billing' }))
+    expect(screen.getByText('Whole project')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show items of Billing' }))
+    expect(screen.getByRole('checkbox', { name: 'Flow' })).toBeChecked()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Flow' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    await waitFor(() => expect(api.create.mutate).toHaveBeenCalled())
+    expect(api.create.mutate.mock.calls[0]?.[0]).toMatchObject({
+      restrictions: { projects: [{ projectId: PROJECT_ID, itemIds: [ITEM_ID] }] },
+    })
+  })
+
+  it('shows the item limit on the project row', async () => {
+    api.project.data = {
+      items: Array.from({ length: API_KEY_SCOPE_MAX_ITEMS + 2 }, (_, index) => ({
+        id: `item-${index}`,
+        name: `Item ${index}`,
+      })),
+    }
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Billing' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Show items of Billing' }))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Item 0' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    expect(
+      await screen.findByText(`Select at most ${API_KEY_SCOPE_MAX_ITEMS} items`),
+    ).toBeInTheDocument()
+    expect(api.create.mutate).not.toHaveBeenCalled()
+  })
+
+  it('requires a project when access is limited', async () => {
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.click(screen.getByRole('radio', { name: 'Selected projects and items' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    expect(await screen.findByText('Select at least one project')).toBeInTheDocument()
+    expect(api.create.mutate).not.toHaveBeenCalled()
+  })
+
+  it('sends the chosen expiry date', async () => {
+    render(<ApiKeysSection />)
+    fireEvent.change(screen.getByPlaceholderText(/Key name/), { target: { value: 'ci' } })
+    fireEvent.change(screen.getByLabelText(/Expires on/), {
+      target: { value: apiKeyDateInDays(30) },
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create API key' }))
+
+    await waitFor(() => expect(api.create.mutate).toHaveBeenCalled())
+    expect(api.create.mutate.mock.calls[0]?.[0]).toMatchObject({ expiresOn: apiKeyDateInDays(30) })
+  })
+
+  it('clears the chosen expiry date', async () => {
+    render(<ApiKeysSection />)
+    const date = screen.getByLabelText(/Expires on/)
+    fireEvent.change(date, { target: { value: apiKeyDateInDays(30) } })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear the expiry date' }))
+
+    await waitFor(() => expect(date).toHaveValue(''))
+    expect(screen.getByRole('button', { name: 'Clear the expiry date' })).toBeDisabled()
   })
 })

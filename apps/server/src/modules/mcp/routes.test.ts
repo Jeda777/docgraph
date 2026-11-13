@@ -1,6 +1,9 @@
+import { eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { beforeEach, describe, expect, it } from 'vitest'
+import { db, projectsToUsers } from '../../db'
 import {
+  addMember,
   createApiKeyFor,
   createItem,
   createProject,
@@ -332,5 +335,138 @@ describe('POST /mcp', () => {
 
     expect(update.isError).toBe(true)
     expect(update.text).toMatch(/read-only/)
+  })
+
+  describe('API key restrictions', () => {
+    const toolNames = async (apiKey: string) => {
+      const res = await callMcp(apiKey, 'tools/list')
+      const { result } = (await res.json()) as { result: { tools: { name: string }[] } }
+      return result.tools.map((tool) => tool.name).sort()
+    }
+
+    it('offers only reading tools to a read-only key', async () => {
+      const user = await createUser()
+      const apiKey = await createApiKeyFor(user.id, {
+        restrictions: { readOnly: true, projects: null },
+      })
+
+      expect(await toolNames(apiKey)).toEqual([
+        'get_database_schema',
+        'get_diagram',
+        'get_document',
+        'list_items',
+        'list_projects',
+      ])
+    })
+
+    it('refuses writes through a read-only key', async () => {
+      const user = await createUser()
+      const project = await createProject({ isForAllUsers: true })
+      const item = await createItem(project.id, { type: 'DOCUMENT' })
+      const apiKey = await createApiKeyFor(user.id, {
+        restrictions: { readOnly: true, projects: null },
+      })
+
+      const update = await callTool(apiKey, 'update_document', {
+        itemId: item.id,
+        markdown: 'x',
+        mode: 'replace',
+      })
+      const read = await callTool(apiKey, 'get_document', { itemId: item.id })
+
+      expect(update.isError).toBe(true)
+      expect(read.isError).toBe(false)
+    })
+
+    it('limits a key to its projects', async () => {
+      const user = await createUser()
+      const allowed = await createProject({ isForAllUsers: true })
+      const other = await createProject({ isForAllUsers: true })
+      const otherItem = await createItem(other.id)
+      const apiKey = await createApiKeyFor(user.id, {
+        restrictions: { readOnly: false, projects: [{ projectId: allowed.id }] },
+      })
+
+      const projects = await callTool(apiKey, 'list_projects', {})
+      const items = await callTool(apiKey, 'list_items', { projectId: other.id })
+      const read = await callTool(apiKey, 'get_database_schema', { itemId: otherItem.id })
+      const created = await callTool(apiKey, 'create_document', {
+        projectId: allowed.id,
+        name: 'Notes',
+      })
+
+      expect(JSON.parse(projects.text).map(({ id }: { id: string }) => id)).toEqual([allowed.id])
+      expect(items.isError).toBe(true)
+      expect(items.text).toMatch(/not found/)
+      expect(read.isError).toBe(true)
+      expect(read.text).toMatch(/not found/)
+      expect(created.isError).toBe(false)
+    })
+
+    it('limits a key to selected items of a project', async () => {
+      const user = await createUser()
+      const project = await createProject({ isForAllUsers: true })
+      const allowed = await createItem(project.id)
+      const other = await createItem(project.id)
+      const apiKey = await createApiKeyFor(user.id, {
+        restrictions: {
+          readOnly: false,
+          projects: [{ projectId: project.id, itemIds: [allowed.id] }],
+        },
+      })
+
+      const items = await callTool(apiKey, 'list_items', { projectId: project.id })
+      const readAllowed = await callTool(apiKey, 'get_database_schema', { itemId: allowed.id })
+      const readOther = await callTool(apiKey, 'get_database_schema', { itemId: other.id })
+      const created = await callTool(apiKey, 'create_document', {
+        projectId: project.id,
+        name: 'Notes',
+      })
+
+      expect(JSON.parse(items.text).map(({ id }: { id: string }) => id)).toEqual([allowed.id])
+      expect(readAllowed.isError).toBe(false)
+      expect(readOther.isError).toBe(true)
+      expect(readOther.text).toMatch(/not found/)
+      expect(created.isError).toBe(true)
+      expect(created.text).toMatch(/only selected items/)
+    })
+
+    it('ignores an item listed under another project', async () => {
+      const user = await createUser()
+      const project = await createProject({ isForAllUsers: true })
+      const other = await createProject({ isForAllUsers: true })
+      const item = await createItem(other.id)
+      const apiKey = await createApiKeyFor(user.id, {
+        restrictions: {
+          readOnly: false,
+          projects: [{ projectId: project.id, itemIds: [item.id] }],
+        },
+      })
+
+      const read = await callTool(apiKey, 'get_database_schema', { itemId: item.id })
+
+      expect(read.isError).toBe(true)
+    })
+
+    it("still checks the owner's access to the key's projects", async () => {
+      const user = await createUser()
+      const project = await createProject({ isForAllUsers: false })
+      await addMember(project.id, user.id)
+      const item = await createItem(project.id)
+      const apiKey = await createApiKeyFor(user.id, {
+        restrictions: { readOnly: false, projects: [{ projectId: project.id }] },
+      })
+      expect((await callTool(apiKey, 'get_database_schema', { itemId: item.id })).isError).toBe(
+        false,
+      )
+
+      await db.delete(projectsToUsers).where(eq(projectsToUsers.projectId, project.id))
+
+      const projects = await callTool(apiKey, 'list_projects', {})
+      const read = await callTool(apiKey, 'get_database_schema', { itemId: item.id })
+      expect(JSON.parse(projects.text)).toEqual([])
+      expect(read.isError).toBe(true)
+      expect(read.text).toMatch(/not found/)
+    })
   })
 })

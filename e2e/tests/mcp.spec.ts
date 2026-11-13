@@ -5,6 +5,13 @@ import { canvasTable, waitForEditor } from '../lib/canvas'
 import { callTool, connectMcp } from '../lib/mcp'
 import { expect, test } from '../lib/test'
 
+/** `YYYY-MM-DD` of the local day `days` days from today, as a date input takes it. */
+const dateInDays = (days: number) => {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date.toLocaleDateString('sv-SE')
+}
+
 const openProfile = async (page: Page) => {
   await page.getByRole('button', { name: 'Account menu' }).click()
   await page.getByRole('menuitem', { name: 'Profile' }).click()
@@ -22,15 +29,16 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
   let profile = await openProfile(page)
   await profile.getByPlaceholder('Key name, e.g. laptop').fill(keyName)
   await profile.getByRole('button', { name: 'Create API key' }).click()
-  await expect(profile.getByText('Copy the API key now')).toBeVisible()
+  const created = page.getByRole('dialog', { name: 'API key created' })
+  await expect(created.getByText('Copy the API key now')).toBeVisible()
 
   // The plain key is shown once, together with a ready-made Claude Code command
-  const apiKey = (await profile.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
+  const apiKey = (await created.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
   expect(apiKey).toMatch(/^dg_\S+$/)
-  await expect(profile.locator('code').filter({ hasText: 'claude mcp add' })).toContainText(
+  await expect(created.locator('code').filter({ hasText: 'claude mcp add' })).toContainText(
     `--transport http docgraph ${BASE_URL}/mcp --header "x-api-key: ${apiKey}"`,
   )
-  await profile.getByRole('button', { name: 'Done' }).click()
+  await created.getByRole('button', { name: 'Done' }).click()
   // Other specs create keys for the same user in parallel, so look at this key's row only
   const keyRow = (dialog: Locator) => dialog.getByRole('listitem').filter({ hasText: keyName })
   await expect(keyRow(profile)).toContainText('Last used never')
@@ -116,4 +124,55 @@ test('an API key created in the app lets an MCP client read and edit diagrams', 
     data: { jsonrpc: '2.0', id: 1, method: 'tools/list' },
   })
   expect(rejected.status()).toBe(401)
+})
+
+test('a read-only API key limited to selected items reaches only them', async ({ page }) => {
+  const keyName = uniqueName('Scoped key')
+  const project = await createProject(page.request)
+  const allowed = await createItem(page.request, project.id, 'DATABASE_DIAGRAM')
+  const hidden = await createItem(page.request, project.id, 'DATABASE_DIAGRAM')
+  const otherProject = await createProject(page.request)
+
+  await page.goto('/')
+  const profile = await openProfile(page)
+  await profile.getByPlaceholder('Key name, e.g. laptop').fill(keyName)
+  await profile.getByLabel('Expires on').fill(dateInDays(30))
+  await profile.getByRole('checkbox', { name: /Read-only/ }).click()
+  await profile.getByRole('radio', { name: 'Selected projects and items' }).click()
+  await profile.getByRole('button', { name: `Show items of ${project.name}` }).click()
+  await profile.getByRole('checkbox', { name: allowed.name }).click()
+  await profile.getByRole('button', { name: 'Create API key' }).click()
+
+  const created = page.getByRole('dialog', { name: 'API key created' })
+  const apiKey = (await created.locator('code').filter({ hasText: /^dg_/ }).textContent()) ?? ''
+  await created.getByRole('button', { name: 'Done' }).click()
+  const keyRow = profile.getByRole('listitem').filter({ hasText: keyName })
+  await expect(keyRow).toContainText(`Read-only · ${project.name} (1 item)`)
+  await expect(keyRow).toContainText('Expires ')
+
+  const client = await connectMcp(apiKey)
+  try {
+    const { tools } = await client.listTools()
+    expect(tools.map((tool) => tool.name).sort()).toEqual([
+      'get_database_schema',
+      'get_diagram',
+      'get_document',
+      'list_items',
+      'list_projects',
+    ])
+
+    const projects = await callTool<{ id: string }[]>(client, 'list_projects')
+    expect(projects.map(({ id }) => id)).toEqual([project.id])
+    expect(projects.map(({ id }) => id)).not.toContain(otherProject.id)
+    const items = await callTool<{ id: string }[]>(client, 'list_items', { projectId: project.id })
+    expect(items.map(({ id }) => id)).toEqual([allowed.id])
+
+    const read = await client.callTool({
+      name: 'get_database_schema',
+      arguments: { itemId: hidden.id },
+    })
+    expect(read.isError).toBe(true)
+  } finally {
+    await client.close()
+  }
 })

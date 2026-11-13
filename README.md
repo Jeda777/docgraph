@@ -99,7 +99,7 @@ claude mcp add --transport http docgraph https://<your-host>/mcp --header "x-api
 
 For a project-level config, copy [`.mcp.example.json`](./.mcp.example.json) to `.mcp.json` and set the `DOCGRAPH_API_KEY` environment variable.
 
-Every call runs with the key owner's project permissions:
+A key can be narrowed when it is created: **read-only** (only the reading tools are offered), limited to **selected projects** (each one whole or only selected items) and given an **expiry date** (at most a year ahead). Restrictions never widen access — every call still runs with the key owner's current project permissions, so a key loses a project as soon as its owner does:
 
 | Tool | Purpose |
 | --- | --- |
