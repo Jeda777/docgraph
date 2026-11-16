@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- base ----------
-FROM node:26.13.0-alpine AS base
+FROM node:26.13.1-alpine AS base
 # Toolchain used only if a native dependency (e.g. argon2) needs to compile from source.
 # Node no longer bundles corepack, so it is installed first; it then runs the pnpm
 # version pinned in the root package.json `packageManager` field.
@@ -31,7 +31,7 @@ COPY --from=build /app/apps/server/dist/runtime-package.json ./package.json
 RUN npm install --omit=dev --no-audit --no-fund
 
 # ---------- runtime ----------
-FROM node:26.13.0-alpine AS runtime
+FROM node:26.13.1-alpine AS runtime
 # tini runs as PID 1: it forwards SIGTERM/SIGINT to node (which then stores open documents
 # before exiting, see `shutdown` in apps/server/src/index.ts) and reaps zombie processes.
 RUN apk add --no-cache tini
