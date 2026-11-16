@@ -36,7 +36,7 @@
     "react-dom": "catalog:",
     "react-email": "catalog:",
     "ulid": "^3.0.2",
-    "ws": "^8.22.1",
+    "ws": "^8.23.0",
     "yjs": "catalog:",
     "zod": "catalog:"
   },
