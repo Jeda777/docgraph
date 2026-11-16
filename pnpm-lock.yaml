@@ -432,8 +432,8 @@ importers:
         specifier: 'catalog:'
         version: 1.7.25(@better-auth/core@1.7.25(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.5(zod@4.6.7))(jose@6.2.17)(kysely@0.29.8)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(better-auth@1.7.25(drizzle-kit@1.0.0-rc.5(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(zod@4.6.7)))(drizzle-orm@1.0.0-rc.5(@types/pg@8.23.1)(pg@8.23.1)(zod@4.6.7))(next@16.4.3(@babel/core@8.1.2)(@playwright/test@1.65.0)(@types/node@26.6.6)(babel-plugin-react-compiler@1.0.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1))(pg@8.23.1)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.1.0(@types/node@26.6.6)(jsdom@31.0.1(@noble/hashes@2.4.0))(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))))(better-call@1.4.5(zod@4.6.7))
       '@dbml/parse':
-        specifier: 11.0.0
-        version: 11.0.0
+        specifier: 11.1.0
+        version: 11.1.0
       '@docgraph/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -1025,8 +1025,8 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@dbml/parse@11.0.0':
-    resolution: {integrity: sha512-vmPZqzAJPAOf+zRy0lgnTtUzllmrG6peOHBdgY3k2vUe3B84lw3G/kEZHE6r+xq6rIZPviGYKc0AdlgDXj7szg==}
+  '@dbml/parse@11.1.0':
+    resolution: {integrity: sha512-NLJB+ySlPlGdSmUZA8r+X7e0+z4Fql8lryFnn2EYtolTt75unjSJZAELTC6NIfK693W9O75M7yEhT5nNqP6mng==}
     engines: {node: '>=18'}
 
   '@dotenvx/dotenvx@1.75.1':
@@ -5729,7 +5729,7 @@ snapshots:
   '@biomejs/cli-win32-x64@2.6.7':
     optional: true
 
-  '@dbml/parse@11.0.0':
+  '@dbml/parse@11.1.0':
     dependencies:
       lodash-es: 4.18.1
       luxon: 3.7.2
