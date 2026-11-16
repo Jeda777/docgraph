@@ -1,5 +1,5 @@
-import { TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT } from '@docgraph/common/diagram'
 import { asTableNode, type DiagramNode } from './database-diagram.model'
+import { TABLE_HEADER_HEIGHT, TABLE_ROW_HEIGHT } from './diagram-defaults'
 
 // Grid used to place tables that are new to the diagram.
 const GRID_COLUMNS = 4

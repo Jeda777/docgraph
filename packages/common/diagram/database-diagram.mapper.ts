@@ -3,13 +3,14 @@ import {
   type DatabaseSchema,
   type DatabaseSchemaRelation,
   databaseDiagramEdgeDataSchema,
-} from '@docgraph/common/schemas'
+} from '../schemas'
 import { asTableNode, type DiagramDocument } from './database-diagram.model'
 
 /**
  * Pure conversion between a database diagram document (React Flow nodes/edges
  * as stored in the CRDT maps) and the layout-free `DatabaseSchema` exchanged
- * with AI agents over MCP. Nothing here touches the database or Yjs.
+ * with AI agents over MCP and as DBML in the editor. Nothing here touches the
+ * database or Yjs.
  *
  * This file reads a diagram as a schema; `database-diagram.apply.ts` writes a
  * schema back, using `.layout.ts` for placement and `.validate.ts` for checks.

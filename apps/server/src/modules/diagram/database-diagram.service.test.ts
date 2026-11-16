@@ -41,6 +41,21 @@ beforeEach(async () => {
 })
 
 describe('updateDatabaseSchema', () => {
+  it('rejects a schema that cannot be applied as a bad request', async () => {
+    const user = await createUser()
+    const project = await createProject({ isForAllUsers: true })
+    const item = await createItem(project.id)
+
+    await expect(
+      updateDatabaseSchema(
+        item.id,
+        { tables: [...SCHEMA.tables, ...SCHEMA.tables], relations: [] },
+        'replace',
+        actorOf(user),
+      ),
+    ).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/Duplicate tables/) })
+  })
+
   it('reports an error when the item is archived while the update runs', async () => {
     const user = await createUser()
     const project = await createProject({ isForAllUsers: true })

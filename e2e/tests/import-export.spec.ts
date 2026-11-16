@@ -66,6 +66,48 @@ test('a database diagram round-trips through JSON, DocGraph and image exports', 
   await expect(page.locator('.react-flow__edge')).toHaveCount(2)
 })
 
+test('a database diagram imports DBML and exports it back', async ({ page }, testInfo) => {
+  const project = await createProject(page.request)
+  const item = await createItem(page.request, project.id, 'DATABASE_DIAGRAM')
+
+  const dbmlPath = testInfo.outputPath('blog.dbml')
+  await writeFile(
+    dbmlPath,
+    `Table users {
+  id bigint [pk]
+  email varchar(255) [unique, not null]
+}
+
+Table posts {
+  id bigint [pk]
+  author_id bigint [not null, ref: > users.id]
+}
+`,
+  )
+
+  await openItem(page, item.id)
+  await importFile(page, dbmlPath)
+  await expect(canvasTable(page, 'users')).toBeVisible()
+  await expect(canvasTable(page, 'posts')).toBeVisible()
+  await expect(page.locator('.react-flow__edge')).toHaveCount(1)
+
+  // Invalid DBML is rejected with its line and leaves the diagram as it was
+  const invalidPath = testInfo.outputPath('invalid.dbml')
+  await writeFile(invalidPath, 'Table users {\n  id int\n}\nRef: users.id > missing.id\n')
+  await importFile(page, invalidPath)
+  await expect(page.getByText('Import failed')).toBeVisible()
+  await expect(page.getByText(/^Line 4:/)).toBeVisible()
+  await expect(canvasTable(page, 'posts')).toBeVisible()
+
+  const dbml = await exportItem(page, 'DBML')
+  expect(dbml.fileName).toBe(`${item.name}.dbml`)
+  const content = dbml.content.toString('utf8')
+  expect(content).toContain('Table users')
+  expect(content).toContain('email varchar(255) [unique, not null]')
+  expect(content).toContain('author_id bigint [not null]')
+  expect(content).toContain('Ref: users.id < posts.author_id')
+})
+
 test('a document imports Markdown and exports it back', async ({ page }, testInfo) => {
   const project = await createProject(page.request)
   const source = await createItem(page.request, project.id, 'DOCUMENT')

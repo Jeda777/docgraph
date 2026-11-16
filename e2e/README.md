@@ -23,7 +23,7 @@ emails. Both run in [Testcontainers](https://testcontainers.com) started by `glo
 | `tests/document-editor.spec.ts` | Headings, text marks, lists and blocks from the formatting toolbar with their active state; the slash menu filtered by title and keyword, picked with the keyboard or the mouse, closed with Escape; Markdown and keyboard shortcuts; toolbar undo/redo; toolbar, slash menu and undo/redo results persisted across a reload |
 | `tests/business-process.spec.ts` | Palette search, adding and labelling business process activities and events, duplicating an element, persisted across a reload |
 | `tests/mcp.spec.ts` | An API key created in the Profile dialog drives the `/mcp` endpoint through the official MCP SDK client: listing projects and items, writing a schema that shows up in the editor, reading it back; a revoked key gets 401; a read-only key limited to selected items, with an expiry date, sees only reading tools and those items |
-| `tests/import-export.spec.ts` | Importing a database diagram fixture, rejecting a file of another type, JSON / PNG / DocGraph export and a DocGraph round trip into another item; Markdown import and Markdown / JSON / DocGraph export of a document; a DocGraph import replacing the content of a non-empty document |
+| `tests/import-export.spec.ts` | Importing a database diagram fixture, rejecting a file of another type, JSON / PNG / DocGraph export and a DocGraph round trip into another item; DBML import (rejecting invalid DBML) and DBML export of a database diagram; Markdown import and Markdown / JSON / DocGraph export of a document; a DocGraph import replacing the content of a non-empty document |
 
 ## Running locally
 

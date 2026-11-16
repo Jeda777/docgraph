@@ -6,6 +6,7 @@ const MIME_TYPES = {
   json: 'application/json;charset=utf-8',
   docgraph: 'application/octet-stream',
   markdown: 'text/markdown;charset=utf-8',
+  dbml: 'text/plain;charset=utf-8',
   png: 'image/png',
   jpeg: 'image/jpeg',
   svg: 'image/svg+xml',

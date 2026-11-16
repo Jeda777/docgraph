@@ -5,6 +5,7 @@ import {
 } from '@docgraph/common/schemas'
 import { useEffect, useState } from 'react'
 import { useAreaTab } from '../../../hooks/use-area-tab'
+import { useDbmlIo } from '../../../hooks/use-dbml-io'
 import { useDiagramIo } from '../../../hooks/use-diagram-io'
 import { useFlowCenter } from '../../../hooks/use-flow-center'
 import { revealSidebarCard } from '../../../lib/diagram-focus'
@@ -96,6 +97,21 @@ export const DatabaseSidebar = ({
     replaceDocument,
   })
 
+  const { handleImportDbml, handleDownloadDbml } = useDbmlIo({
+    nodes,
+    edges,
+    areas,
+    itemName,
+    replaceDocument,
+  })
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file?.name.endsWith('.dbml')) return handleImport(event)
+    event.target.value = ''
+    await handleImportDbml(file)
+  }
+
   const areaTab = useAreaTab({
     areas,
     setAreas,
@@ -145,9 +161,11 @@ export const DatabaseSidebar = ({
       tabs={tabs}
       tab={tab}
       onTabChange={setTab}
-      onImport={handleImport}
+      onImport={handleImportFile}
+      importAccept='.json,.docgraph,.dbml'
       onDownloadJson={handleDownloadJson}
       onDownloadImage={handleDownloadImage}
+      extraExportFormats={[{ label: 'DBML', onSelect: handleDownloadDbml }]}
       readOnly={readOnly}
     />
   )

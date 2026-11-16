@@ -1,6 +1,6 @@
-import type { DatabaseSchemaTable } from '@docgraph/common/schemas'
-import { BadRequestException } from '../../errors'
-import { findDuplicates } from '../../lib/find-duplicates'
+import type { DatabaseSchemaTable } from '../schemas'
+import { DatabaseSchemaError } from './database-diagram.model'
+import { findDuplicates } from './find-duplicates'
 
 /** Rejects duplicate table or column names and indexes on unknown columns. */
 export const validateTables = (tables: DatabaseSchemaTable[]) => {
@@ -23,5 +23,5 @@ export const validateTables = (tables: DatabaseSchemaTable[]) => {
     }
   }
 
-  if (errors.length) throw new BadRequestException('BAD_REQUEST', errors.join('\n'))
+  if (errors.length) throw new DatabaseSchemaError(errors.join('\n'))
 }

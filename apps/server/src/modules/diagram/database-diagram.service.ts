@@ -1,5 +1,14 @@
+import {
+  applyDatabaseSchema as applySchema,
+  DatabaseSchemaError,
+  type DiagramDocument,
+  type DiagramEdge,
+  type DiagramNode,
+  toDatabaseSchema,
+} from '@docgraph/common/diagram'
 import { type DatabaseSchema, DIAGRAM_MAPS, type SchemaApplyMode } from '@docgraph/common/schemas'
 import type { Doc } from 'yjs'
+import { BadRequestException } from '../../errors'
 import type { Actor } from '../auth/actor'
 import {
   readCollection,
@@ -9,9 +18,17 @@ import {
   writeItemDocument,
 } from '../item/item-document'
 import { createItem } from '../item/service'
-import { applyDatabaseSchema } from './database-diagram.apply'
-import { toDatabaseSchema } from './database-diagram.mapper'
-import type { DiagramDocument, DiagramEdge, DiagramNode } from './database-diagram.model'
+
+const applyDatabaseSchema = (...args: Parameters<typeof applySchema>) => {
+  try {
+    return applySchema(...args)
+  } catch (error) {
+    if (error instanceof DatabaseSchemaError) {
+      throw new BadRequestException('BAD_REQUEST', error.message)
+    }
+    throw error
+  }
+}
 
 const readDiagram = (doc: Doc): DiagramDocument => ({
   nodes: readCollection<DiagramNode>(doc, DIAGRAM_MAPS.nodes),

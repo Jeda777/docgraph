@@ -4,7 +4,7 @@ import {
   columnIdFromHandleId,
   type DatabaseDiagramNodeData,
   databaseDiagramNodeDataSchema,
-} from '@docgraph/common/schemas'
+} from '../schemas'
 
 /** Document types and node/edge helpers shared by the database diagram mapper files. */
 
@@ -40,3 +40,8 @@ export const keyOfEdge = (edge: DiagramEdge) =>
     edge.target,
     columnIdFromHandleId(edge.targetHandle),
   )
+
+/** A schema that cannot be applied to the diagram; the message explains why. */
+export class DatabaseSchemaError extends Error {
+  override name = 'DatabaseSchemaError'
+}
