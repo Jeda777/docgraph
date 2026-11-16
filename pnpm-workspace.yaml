@@ -4,7 +4,7 @@ packages:
   - 'e2e'
 
 # runtime / package manager
-nodeVersion: 26.13.0
+nodeVersion: 26.13.1
 engineStrict: true
 pmOnFail: download
 
