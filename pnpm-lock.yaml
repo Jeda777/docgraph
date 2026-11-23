@@ -174,10 +174,10 @@ settings:
 catalogs:
   default:
     '@better-auth/api-key':
-      specifier: ^1.7.26
+      specifier: ^1.7.27
       version: 1.7.27
     '@better-auth/drizzle-adapter':
-      specifier: ^1.7.26
+      specifier: ^1.7.27
       version: 1.7.27
     '@hocuspocus/extension-database':
       specifier: 4.8.0
@@ -249,7 +249,7 @@ catalogs:
       specifier: ^19.3.0
       version: 19.3.0
     better-auth:
-      specifier: ^1.7.26
+      specifier: ^1.7.27
       version: 1.7.27
     react:
       specifier: ^19.3.1
