@@ -36,10 +36,10 @@ catalog:
   "@better-auth/drizzle-adapter": ^1.7.27
   "@modelcontextprotocol/sdk": ^1.32.2
   # documents
-  "@hocuspocus/extension-database": 4.8.0
-  "@hocuspocus/server": 4.8.0
-  "@hocuspocus/provider": 4.8.0
-  "@hocuspocus/provider-react": 4.8.0
+  "@hocuspocus/extension-database": 4.9.0
+  "@hocuspocus/server": 4.9.0
+  "@hocuspocus/provider": 4.9.0
+  "@hocuspocus/provider-react": 4.9.0
   yjs: ^13.6.33
   #tiptap
   "@tiptap/core": 3.35.0
