@@ -42,18 +42,18 @@ catalog:
   "@hocuspocus/provider-react": 4.8.0
   yjs: ^13.6.33
   #tiptap
-  "@tiptap/core": 3.33.1
-  "@tiptap/extension-collaboration": 3.33.1
-  "@tiptap/extension-collaboration-caret": 3.33.1
-  "@tiptap/extension-drag-handle": 3.33.1
-  "@tiptap/extension-drag-handle-react": 3.33.1
-  "@tiptap/extension-node-range": 3.33.1
-  "@tiptap/extension-placeholder": 3.33.1
-  "@tiptap/markdown": 3.33.1
-  "@tiptap/pm": 3.33.1
-  "@tiptap/react": 3.33.1
-  "@tiptap/starter-kit": 3.33.1
-  "@tiptap/suggestion": 3.33.1
+  "@tiptap/core": 3.34.0
+  "@tiptap/extension-collaboration": 3.34.0
+  "@tiptap/extension-collaboration-caret": 3.34.0
+  "@tiptap/extension-drag-handle": 3.34.0
+  "@tiptap/extension-drag-handle-react": 3.34.0
+  "@tiptap/extension-node-range": 3.34.0
+  "@tiptap/extension-placeholder": 3.34.0
+  "@tiptap/markdown": 3.34.0
+  "@tiptap/pm": 3.34.0
+  "@tiptap/react": 3.34.0
+  "@tiptap/starter-kit": 3.34.0
+  "@tiptap/suggestion": 3.34.0
   "@tiptap/y-tiptap": 3.3.0
   # react
   react: ^19.3.1
