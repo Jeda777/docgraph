@@ -33,7 +33,7 @@
     "@tiptap/starter-kit": "catalog:",
     "@tiptap/suggestion": "catalog:",
     "@tiptap/y-tiptap": "catalog:",
-    "@xyflow/react": "^12.12.1",
+    "@xyflow/react": "^13.0.2",
     "axios": "^1.21.1",
     "better-auth": "catalog:",
     "class-variance-authority": "^0.7.1",

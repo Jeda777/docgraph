@@ -2,13 +2,12 @@ import { DIAGRAM_MAPS } from '@docgraph/common/schemas'
 import { useHocuspocusProvider } from '@hocuspocus/provider-react'
 import {
   addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
   type Connection,
   type Edge,
-  type EdgeChange,
+  type EdgeChangeset,
   type Node,
   type NodeChange,
+  NodeChangeset,
   reconnectEdge,
 } from '@xyflow/react'
 import type { AreaNode } from '../components/base/area-node'
@@ -159,13 +158,14 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
   const allNodes: (NodeType | AreaNode)[] = [...layeredAreas, ...nodes]
 
   // Changes arrive for both node sets; route each to its own collection.
-  const onNodesChange = (changes: NodeChange<NodeType | AreaNode>[]) => {
+  const onNodesChange = (nodeChangeset: NodeChangeset<NodeType | AreaNode>) => {
+    const changes = nodeChangeset.toArray()
     trackResize(changes)
     const areaIds = new Set(areas.map((a) => a.id))
     const isArea = (c: NodeChange<NodeType | AreaNode>) => 'id' in c && areaIds.has(c.id)
-    const areaChanges = changes.filter(isArea)
-    const nodeChanges = changes.filter((c) => !isArea(c))
-    if (areaChanges.length) setAreas((a) => applyNodeChanges(areaChanges, a) as AreaNode[])
+    const areaChanges = changes.filter(isArea) as NodeChange<AreaNode>[]
+    const nodeChanges = changes.filter((c) => !isArea(c)) as NodeChange<NodeType>[]
+    if (areaChanges.length) setAreas((a) => new NodeChangeset(areaChanges).applyTo(a))
     if (nodeChanges.length) {
       const removedNodeIds = new Set(
         nodeChanges.filter((change) => change.type === 'remove').map((change) => change.id),
@@ -179,7 +179,7 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
       // React Flow sends the connected edge removals through `onEdgesChange`, which cleans
       // edge references, so only node references are cleaned here.
       write((current) => {
-        const next = applyNodeChanges(nodeChanges, current) as NodeType[]
+        const next = new NodeChangeset(nodeChanges).applyTo(current)
         return removedNodeIds.size && cleanDeletedReferences
           ? cleanDeletedReferences(next, removedNodeIds, new Set())
           : next
@@ -194,11 +194,9 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
     }
   }
 
-  const onEdgesChange = (changes: EdgeChange<EdgeType>[]) => {
-    const removedEdgeIds = new Set(
-      changes.filter((change) => change.type === 'remove').map((change) => change.id),
-    )
-    setEdges((eds) => applyEdgeChanges(changes, eds))
+  const onEdgesChange = (edgeChangeset: EdgeChangeset<EdgeType>) => {
+    const removedEdgeIds = new Set(edgeChangeset.getByType('remove').map((change) => change.id))
+    setEdges((eds) => edgeChangeset.applyTo(eds))
     if (removedEdgeIds.size && cleanDeletedReferences) {
       setNodes((current) => cleanDeletedReferences(current, new Set(), removedEdgeIds))
     }

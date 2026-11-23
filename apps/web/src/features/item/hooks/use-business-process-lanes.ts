@@ -4,7 +4,7 @@ import {
   orderParticipantLanes,
 } from '@docgraph/common/diagram'
 import type { BusinessProcessNodeData } from '@docgraph/common/schemas'
-import { type ReactFlowState, useStore } from '@xyflow/react'
+import { type NodesStore, useEqualSelector, useNodesStore } from '@xyflow/react'
 import { useRef } from 'react'
 import type { BusinessProcessNode } from '../components/business-process/business-process-node'
 
@@ -61,14 +61,14 @@ export const useBusinessProcessLanes = (
 ): BusinessProcessLaneState => {
   const orientation = data.kind === 'participant' ? data.orientation : undefined
   const isLane = data.kind === 'participant' && data.participantType === 'lane'
-  // The store also changes on viewport moves; skip the lane walk when nodes did not change.
+  // The store also changes on measurements and lookups; skip the lane walk when nodes did not change.
   const cache = useRef<{
     nodes: unknown
     key: string
     state: BusinessProcessLaneState
   } | null>(null)
 
-  const selector = (state: ReactFlowState) => {
+  const selector = (state: NodesStore) => {
     if (!orientation) return EMPTY_LANE_STATE
     const key = `${id}|${parentId}|${orientation}|${isLane}`
     if (cache.current?.nodes === state.nodes && cache.current.key === key) {
@@ -102,5 +102,5 @@ export const useBusinessProcessLanes = (
     return laneState
   }
 
-  return useStore(selector, isSameLaneState)
+  return useNodesStore(useEqualSelector(selector, isSameLaneState))
 }
