@@ -64,5 +64,5 @@ catalog:
   "@react-email/ui": ^6.11.12
   #other
   vitest: ^5.1.1
-  testcontainers: ^12.2.1
-  "@testcontainers/postgresql": ^12.2.1
+  testcontainers: ^12.2.2
+  "@testcontainers/postgresql": ^12.2.2
