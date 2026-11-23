@@ -17,7 +17,7 @@
     "@better-auth/drizzle-adapter": "catalog:",
     "@hocuspocus/extension-database": "catalog:",
     "@hocuspocus/server": "catalog:",
-    "@hono/node-server": "^2.1.9",
+    "@hono/node-server": "^2.1.10",
     "@hono/zod-validator": "^0.9.1",
     "@logtape/logtape": "^2.4.2",
     "@modelcontextprotocol/sdk": "catalog:",
