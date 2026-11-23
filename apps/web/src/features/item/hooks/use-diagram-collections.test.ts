@@ -1,6 +1,13 @@
 import { AREA_NODE_TYPE, DIAGRAM_MAPS } from '@docgraph/common/schemas'
 import { act, cleanup, renderHook } from '@testing-library/react'
-import type { Edge, Node, NodeChange } from '@xyflow/react'
+import {
+  type Edge,
+  type EdgeChange,
+  EdgeChangeset,
+  type Node,
+  type NodeChange,
+  NodeChangeset,
+} from '@xyflow/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as Y from 'yjs'
 import type { AreaNode } from '../components/base/area-node'
@@ -9,6 +16,9 @@ import { type DiagramCollectionsOptions, useDiagramCollections } from './use-dia
 type TestNode = Node<{ label: string; refs?: string[] }, 'test'>
 type TestEdge = Edge<{ kind: string }, 'flow' | 'message'>
 type Options = DiagramCollectionsOptions<TestNode, TestEdge>
+
+const nodeChanges = (changes: NodeChange<AreaNode | TestNode>[]) => new NodeChangeset(changes)
+const edgeChanges = (changes: EdgeChange<TestEdge>[]) => new EdgeChangeset(changes)
 
 // A real Y.Doc behind a minimal provider, so the real `useYjsCollection` runs underneath.
 const provider = vi.hoisted(() => ({
@@ -165,10 +175,12 @@ describe('useDiagramCollections', () => {
       const { result } = renderCollections()
 
       act(() =>
-        result.current.onNodesChange([
-          { type: 'position', id: 'a', position: { x: 10, y: 20 } },
-          { type: 'position', id: 'z', position: { x: 30, y: 40 } },
-        ]),
+        result.current.onNodesChange(
+          nodeChanges([
+            { type: 'position', id: 'a', position: { x: 10, y: 20 } },
+            { type: 'position', id: 'z', position: { x: 30, y: 40 } },
+          ]),
+        ),
       )
       flush()
 
@@ -192,7 +204,7 @@ describe('useDiagramCollections', () => {
       )
       const { result } = renderCollections({ cleanDeletedReferences })
 
-      act(() => result.current.onNodesChange([{ type: 'remove', id: 'b' }]))
+      act(() => result.current.onNodesChange(nodeChanges([{ type: 'remove', id: 'b' }])))
       flush()
 
       expect(ids(result.current.nodes)).toEqual(['a', 'c'])
@@ -212,7 +224,9 @@ describe('useDiagramCollections', () => {
       const { result } = renderCollections({ cleanDeletedReferences })
 
       act(() =>
-        result.current.onNodesChange([{ type: 'position', id: 'a', position: { x: 1, y: 1 } }]),
+        result.current.onNodesChange(
+          nodeChanges([{ type: 'position', id: 'a', position: { x: 1, y: 1 } }]),
+        ),
       )
 
       expect(cleanDeletedReferences).not.toHaveBeenCalled()
@@ -226,16 +240,20 @@ describe('useDiagramCollections', () => {
       const { result } = renderCollections({ normalizeNodes })
 
       act(() =>
-        result.current.onNodesChange([
-          { type: 'select', id: 'a', selected: true },
-          { type: 'dimensions', id: 'a', dimensions: { width: 10, height: 10 } },
-        ]),
+        result.current.onNodesChange(
+          nodeChanges([
+            { type: 'select', id: 'a', selected: true },
+            { type: 'dimensions', id: 'a', dimensions: { width: 10, height: 10 } },
+          ]),
+        ),
       )
       expect(normalizeNodes).not.toHaveBeenCalled()
       expect(result.current.nodes[0].data.label).toBe('a')
 
       act(() =>
-        result.current.onNodesChange([{ type: 'position', id: 'a', position: { x: 5, y: 5 } }]),
+        result.current.onNodesChange(
+          nodeChanges([{ type: 'position', id: 'a', position: { x: 5, y: 5 } }]),
+        ),
       )
       expect(normalizeNodes).toHaveBeenCalledTimes(1)
       expect(result.current.nodes[0].data.label).toBe('normalized')
@@ -247,15 +265,17 @@ describe('useDiagramCollections', () => {
       const { result } = renderCollections({ normalizeNodes })
 
       act(() =>
-        result.current.onNodesChange([
-          {
-            type: 'dimensions',
-            id: 'a',
-            dimensions: { width: 10, height: 10 },
-            resizing: true,
-            setAttributes: true,
-          },
-        ]),
+        result.current.onNodesChange(
+          nodeChanges([
+            {
+              type: 'dimensions',
+              id: 'a',
+              dimensions: { width: 10, height: 10 },
+              resizing: true,
+              setAttributes: true,
+            },
+          ]),
+        ),
       )
 
       expect(normalizeNodes).toHaveBeenCalledTimes(1)
@@ -272,13 +292,13 @@ describe('useDiagramCollections', () => {
         setAttributes: true,
       })
 
-      act(() => result.current.onNodesChange([resize(true, 50)]))
+      act(() => result.current.onNodesChange(nodeChanges([resize(true, 50)])))
       flush()
 
       expect(provider.awareness.setLocalStateField).toHaveBeenLastCalledWith('draggingNodeId', 'a')
       expect(stored(DIAGRAM_MAPS.nodes).a).not.toHaveProperty('width')
 
-      act(() => result.current.onNodesChange([resize(false, 80)]))
+      act(() => result.current.onNodesChange(nodeChanges([resize(false, 80)])))
       flush()
 
       expect(provider.awareness.setLocalStateField).toHaveBeenLastCalledWith('draggingNodeId', null)
@@ -292,7 +312,7 @@ describe('useDiagramCollections', () => {
       const cleanDeletedReferences = vi.fn((nodes: TestNode[]) => nodes)
       const { result } = renderCollections({ cleanDeletedReferences })
 
-      act(() => result.current.onEdgesChange([{ type: 'remove', id: 'ab' }]))
+      act(() => result.current.onEdgesChange(edgeChanges([{ type: 'remove', id: 'ab' }])))
       flush()
 
       expect(ids(result.current.edges)).toEqual(['ba'])
@@ -309,7 +329,9 @@ describe('useDiagramCollections', () => {
       const cleanDeletedReferences = vi.fn((nodes: TestNode[]) => nodes)
       const { result } = renderCollections({ cleanDeletedReferences })
 
-      act(() => result.current.onEdgesChange([{ type: 'select', id: 'ab', selected: true }]))
+      act(() =>
+        result.current.onEdgesChange(edgeChanges([{ type: 'select', id: 'ab', selected: true }])),
+      )
 
       expect(result.current.edges[0].selected).toBe(true)
       expect(cleanDeletedReferences).not.toHaveBeenCalled()
@@ -366,10 +388,12 @@ describe('useDiagramCollections', () => {
 
       act(() => result.current.onNodeDragStart(undefined, { id: 'a' }))
       act(() =>
-        result.current.onNodesChange([
-          { type: 'position', id: 'a', position: { x: 10, y: 0 } },
-          { type: 'position', id: 'z', position: { x: 20, y: 0 } },
-        ]),
+        result.current.onNodesChange(
+          nodeChanges([
+            { type: 'position', id: 'a', position: { x: 10, y: 0 } },
+            { type: 'position', id: 'z', position: { x: 20, y: 0 } },
+          ]),
+        ),
       )
       flush()
 
@@ -537,7 +561,7 @@ describe('useDiagramCollections', () => {
       seed({ nodes: [node('a'), node('b')], edges: [edge('ab', 'a', 'b')] })
       const { result } = renderCollections()
 
-      act(() => result.current.onNodesChange([{ type: 'remove', id: 'b' }]))
+      act(() => result.current.onNodesChange(nodeChanges([{ type: 'remove', id: 'b' }])))
       act(() => result.current.history.undo())
 
       expect(ids(result.current.nodes)).toEqual(['a', 'b'])
@@ -582,7 +606,7 @@ describe('useDiagramCollections', () => {
           data: { ...item.data, refs: item.data.refs?.filter((ref) => !deletedEdgeIds.has(ref)) },
         }))
       const { result } = renderCollections({ cleanDeletedReferences })
-      act(() => result.current.onEdgesChange([{ type: 'remove', id: 'ab' }]))
+      act(() => result.current.onEdgesChange(edgeChanges([{ type: 'remove', id: 'ab' }])))
 
       const peer = new Y.Doc()
       Y.applyUpdate(peer, Y.encodeStateAsUpdate(provider.document))

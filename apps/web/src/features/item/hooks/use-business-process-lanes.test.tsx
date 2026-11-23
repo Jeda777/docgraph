@@ -1,7 +1,7 @@
 import { minimumParticipantNodeSize } from '@docgraph/common/diagram'
 import type { BusinessProcessNodeData } from '@docgraph/common/schemas'
 import { act, cleanup, renderHook } from '@testing-library/react'
-import { ReactFlowProvider, useStoreApi } from '@xyflow/react'
+import { ReactFlowProvider, useReactFlowStoreApi } from '@xyflow/react'
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it } from 'vitest'
 import type { BusinessProcessNode } from '../components/business-process/business-process-node'
@@ -53,12 +53,12 @@ const renderLanes = (initialProps: HookProps, nodes: BusinessProcessNode[] = NOD
   const hook = renderHook(
     ({ id, data, parentId }: HookProps) => {
       renders++
-      return { lanes: useBusinessProcessLanes(id, data, parentId), store: useStoreApi() }
+      return { lanes: useBusinessProcessLanes(id, data, parentId), stores: useReactFlowStoreApi() }
     },
     { initialProps, wrapper },
   )
   const setNodes = (next: BusinessProcessNode[]) =>
-    act(() => hook.result.current.store.getState().setNodes(next))
+    act(() => hook.result.current.stores.optionsStore.getState().setNodes(next))
   return { ...hook, setNodes, renders: () => renders }
 }
 
@@ -180,12 +180,13 @@ describe('useBusinessProcessLanes', () => {
   })
 
   describe('re-rendering', () => {
-    it('skips viewport changes', () => {
+    it('skips store changes that leave the nodes untouched', () => {
       const { result, renders } = renderLanes({ id: POOL.id, data: POOL.data })
       const before = result.current.lanes
       const rendersBefore = renders()
+      const { nodesStore } = result.current.stores
 
-      act(() => result.current.store.setState({ transform: [100, 50, 2] }))
+      act(() => nodesStore.setState({ nodesInitialized: !nodesStore.getState().nodesInitialized }))
 
       expect(renders()).toBe(rendersBefore)
       expect(result.current.lanes).toBe(before)

@@ -222,6 +222,9 @@ export const DiagramCanvas = <N extends Node, E extends Edge>({
           edgeTypes={edgeTypes}
           connectionMode={ConnectionMode.Loose}
           elevateNodesOnSelect={false}
+          elevateEdgesOnSelect={false}
+          // xyflow follows the OS color scheme by default, which clashes with the app's own theme toggle.
+          forceColorMode='light'
           onlyRenderVisibleElements
           fitView
           maxZoom={5}
