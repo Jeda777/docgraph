@@ -24,7 +24,7 @@ declare module 'vitest' {
  */
 // biome-ignore lint/style/noDefaultExport: Vitest global setup
 export default async function globalSetup(project: TestProject) {
-  const container = await new PostgreSqlContainer('postgres:18.6')
+  const container = await new PostgreSqlContainer('postgres:18.7')
     .withDatabase('docgraph_test')
     .withUsername('docgraph')
     .withPassword('docgraph')

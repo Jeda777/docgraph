@@ -51,7 +51,7 @@ export default async function globalSetup() {
   }
 
   const [postgres, mailpit] = await Promise.all([
-    new PostgreSqlContainer('postgres:18.6')
+    new PostgreSqlContainer('postgres:18.7')
       .withDatabase('docgraph_e2e')
       .withUsername('docgraph')
       .withPassword('docgraph')
