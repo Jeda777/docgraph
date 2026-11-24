@@ -1,5 +1,5 @@
 import type { DatabaseDiagramNodeDataValue } from '@docgraph/common/schemas'
-import { ArrowDown, ArrowUp, Menu, Plus, Trash } from 'lucide-react'
+import { ArrowDown, ArrowUp, Menu, Plus, Trash, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ export type TableColumnDropdownProps = {
   handleChangeNodeValue: (newValue: Partial<DatabaseDiagramNodeDataValue>) => void
   handleMoveNodeValue: (direction: -1 | 1) => void
   handleDeleteNodeValue: (id: DatabaseDiagramNodeDataValue['id']) => void
+  handleRemoveDefault: () => void
   readOnly?: boolean
 }
 
@@ -39,6 +40,7 @@ export const TableColumnDropdown = ({
   handleChangeNodeValue,
   handleMoveNodeValue,
   handleDeleteNodeValue,
+  handleRemoveDefault,
   readOnly,
 }: TableColumnDropdownProps) => {
   return (
@@ -130,6 +132,12 @@ export const TableColumnDropdown = ({
             onClick={() => handleChangeNodeValue({ id, defaultValue: '' })}
           >
             <Plus /> Add default
+          </DropdownMenuItem>
+        )}
+
+        {defaultValue !== undefined && (
+          <DropdownMenuItem className='cursor-pointer' onClick={handleRemoveDefault}>
+            <X /> Remove default
           </DropdownMenuItem>
         )}
 

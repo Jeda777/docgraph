@@ -108,6 +108,12 @@ describe('SidebarTable', () => {
     })
 
     expect(users()?.data.values.map((value) => value.defaultValue)).toEqual([undefined, 'now()'])
+
+    // "Add default" keeps the menu open, so "Remove default" is already there.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove default' }))
+
+    expect(users()?.data.values[1]).not.toHaveProperty('defaultValue')
+    expect(screen.queryByRole('textbox', { name: 'Column default' })).toBeNull()
   })
 
   it('toggles auto-increment of a numeric column', () => {

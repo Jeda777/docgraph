@@ -46,6 +46,25 @@ export const SidebarTableColumn = memo(
         ),
       )
 
+    const handleRemoveDefault = () =>
+      setNodes((state) =>
+        state.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  values: n.data.values.map((v) => {
+                    if (v.id !== id) return v
+                    const { defaultValue: _removed, ...rest } = v
+                    return rest
+                  }),
+                },
+              }
+            : n,
+        ),
+      )
+
     const handleMoveNodeValue = (direction: -1 | 1) =>
       setNodes((state) =>
         state.map((n) => {
@@ -114,6 +133,7 @@ export const SidebarTableColumn = memo(
             handleChangeNodeValue={handleChangeNodeValue}
             handleDeleteNodeValue={handleDeleteNodeValue}
             handleMoveNodeValue={handleMoveNodeValue}
+            handleRemoveDefault={handleRemoveDefault}
             isFirst={index === 0}
             isLast={index === total - 1}
             value={value}
