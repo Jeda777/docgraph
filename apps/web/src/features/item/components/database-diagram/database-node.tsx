@@ -71,12 +71,21 @@ export const DatabaseNode = memo(
                     {editors[`value:${x.id}:value`] && (
                       <EditCaret color={editors[`value:${x.id}:value`]} />
                     )}
+                    {(x.defaultValue || editors[`value:${x.id}:defaultValue`]) && (
+                      <span className='ml-1 inline-block max-w-40 truncate align-bottom text-muted-foreground'>
+                        = {x.defaultValue}
+                        {editors[`value:${x.id}:defaultValue`] && (
+                          <EditCaret color={editors[`value:${x.id}:defaultValue`]} />
+                        )}
+                      </span>
+                    )}
                   </p>
                   <div className='flex items-center gap-0.5'>
                     {x.primaryKey && <p className='font-bold text-amber-500'>PK</p>}
                     {x.foreignKey && <p className='font-bold text-sky-500'>FK</p>}
                     {x.index && <p className='font-bold'>I</p>}
                     {x.unsigned && <p className='font-bold'>UN</p>}
+                    {x.increment && <p className='font-bold'>AI</p>}
                     {x.unique && <p className='font-bold'>U</p>}
                     {x.nullable && <p className='font-bold'>N</p>}
                   </div>

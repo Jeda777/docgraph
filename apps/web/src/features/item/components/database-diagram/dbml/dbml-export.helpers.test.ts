@@ -43,6 +43,37 @@ describe('toDbml', () => {
 `)
   })
 
+  it('writes auto-increment and each kind of default', () => {
+    const dbml = toDbml(
+      schemaOf({
+        tables: [
+          {
+            name: 'jobs',
+            columns: [
+              { name: 'id', type: 'bigint', primaryKey: true, increment: true },
+              { name: 'attempts', type: 'int', defaultValue: '0' },
+              { name: 'ratio', type: 'decimal', defaultValue: '1.50' },
+              { name: 'done', type: 'boolean', defaultValue: 'FALSE' },
+              { name: 'status', type: 'text', defaultValue: "'it''s queued'" },
+              { name: 'created_at', type: 'timestamp', defaultValue: 'now()' },
+              { name: 'quoted', type: 'text', defaultValue: '`x`' },
+              { name: 'blank', type: 'text', defaultValue: '  ' },
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(dbml).toContain('  id bigint [pk, increment]')
+    expect(dbml).toContain('  attempts int [not null, default: 0]')
+    expect(dbml).toContain('  ratio decimal [not null, default: `1.50`]')
+    expect(dbml).toContain('  done boolean [not null, default: false]')
+    expect(dbml).toContain("  status text [not null, default: 'it\\'s queued']")
+    expect(dbml).toContain('  created_at timestamp [not null, default: `now()`]')
+    expect(dbml).toContain('  quoted text [not null]')
+    expect(dbml).toContain('  blank text [not null]')
+  })
+
   it('writes each relation with its operator and referential actions', () => {
     const table = (name: string) => ({ name, columns: [{ name: 'id', type: 'int' }] })
     const dbml = toDbml(

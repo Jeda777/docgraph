@@ -27,7 +27,9 @@ export const TableColumnDropdown = ({
     primaryKey,
     unique,
     unsigned,
+    increment,
     nullable,
+    defaultValue,
     description,
     index: isIndex,
     value,
@@ -41,7 +43,11 @@ export const TableColumnDropdown = ({
 }: TableColumnDropdownProps) => {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size='icon-sm' variant='ghost' disabled={readOnly} />}>
+      <DropdownMenuTrigger
+        render={
+          <Button size='icon-sm' variant='ghost' aria-label='Column options' disabled={readOnly} />
+        }
+      >
         <Menu />
       </DropdownMenuTrigger>
 
@@ -76,6 +82,15 @@ export const TableColumnDropdown = ({
           </DropdownMenuCheckboxItem>
         )}
 
+        {(isNumericType(value) || increment) && (
+          <DropdownMenuCheckboxItem
+            checked={increment ?? false}
+            onCheckedChange={(e) => handleChangeNodeValue({ id, increment: e })}
+          >
+            Auto Increment
+          </DropdownMenuCheckboxItem>
+        )}
+
         <DropdownMenuCheckboxItem
           checked={unique}
           onCheckedChange={(e) => handleChangeNodeValue({ id, unique: e })}
@@ -107,6 +122,16 @@ export const TableColumnDropdown = ({
         >
           <ArrowDown /> Move down
         </DropdownMenuItem>
+
+        {defaultValue === undefined && (
+          <DropdownMenuItem
+            className='cursor-pointer'
+            closeOnClick={false}
+            onClick={() => handleChangeNodeValue({ id, defaultValue: '' })}
+          >
+            <Plus /> Add default
+          </DropdownMenuItem>
+        )}
 
         {description === undefined && (
           <DropdownMenuItem

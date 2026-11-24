@@ -27,6 +27,13 @@ export type DbmlParseResult = { ok: true; schema: DatabaseSchema } | { ok: false
 const MAX_REPORTED_ERRORS = 5
 const UNSIGNED_SUFFIX = /\s+unsigned$/i
 
+/** A DBML `default:` as SQL, the form the diagram keeps defaults in. */
+const sqlDefault = (dbdefault: Column['dbdefault']) => {
+  if (!dbdefault) return undefined
+  const value = String(dbdefault.value)
+  return dbdefault.type === 'string' ? `'${value.replaceAll("'", "''")}'` : value
+}
+
 const qualifiedName = (schemaName: string | null, name: string) =>
   schemaName && schemaName !== DBML_DEFAULT_SCHEMA ? `${schemaName}.${name}` : name
 
@@ -243,6 +250,7 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
         const nullable = !primaryKey && !field.not_null
         if (nullable) nullableColumns.add(columnKey(name, field.name))
         const unsigned = UNSIGNED_SUFFIX.test(field.type.type_name)
+        const defaultValue = sqlDefault(field.dbdefault)
 
         return {
           name: field.name,
@@ -253,6 +261,8 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
           index: indexes.indexed.has(field.name),
           foreignKey: foreignKeys.has(columnKey(name, field.name)),
           ...(unsigned ? { unsigned } : {}),
+          ...(field.increment ? { increment: true } : {}),
+          ...(defaultValue ? { defaultValue } : {}),
           ...(field.note?.value ? { description: field.note.value } : {}),
         }
       }),
@@ -299,10 +309,10 @@ const formatErrors = (source: string, errors: readonly Readonly<CompileError>[])
 
 /**
  * Reads DBML into a layout-free schema. What the diagram can't hold is dropped: enum
- * definitions (columns keep the enum name as their type), defaults, increments, checks,
- * expression indexes, table groups and sticky notes. DBML has no foreign key flag or
- * relation nullability, so both are derived: a column is a foreign key when it is the
- * referencing side of a ref, and a relation is nullable when that column is.
+ * definitions (columns keep the enum name as their type), checks, expression indexes,
+ * table groups and sticky notes. DBML has no foreign key flag or relation nullability,
+ * so both are derived: a column is a foreign key when it is the referencing side of a
+ * ref, and a relation is nullable when that column is.
  */
 export const parseDbml = (source: string): DbmlParseResult => {
   const layout = new MemoryProjectLayout()

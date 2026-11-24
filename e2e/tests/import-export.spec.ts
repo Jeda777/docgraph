@@ -74,8 +74,9 @@ test('a database diagram imports DBML and exports it back', async ({ page }, tes
   await writeFile(
     dbmlPath,
     `Table users {
-  id bigint [pk]
+  id bigint [pk, increment]
   email varchar(255) [unique, not null]
+  created_at timestamp [not null, default: \`now()\`]
 }
 
 Table posts {
@@ -90,6 +91,8 @@ Table posts {
   await expect(canvasTable(page, 'users')).toBeVisible()
   await expect(canvasTable(page, 'posts')).toBeVisible()
   await expect(page.locator('.react-flow__edge')).toHaveCount(1)
+  await expect(canvasTable(page, 'users').getByText('= now()')).toBeVisible()
+  await expect(canvasTable(page, 'users').getByText('AI', { exact: true })).toBeVisible()
 
   // Invalid DBML is rejected with its line and leaves the diagram as it was
   const invalidPath = testInfo.outputPath('invalid.dbml')
@@ -103,7 +106,9 @@ Table posts {
   expect(dbml.fileName).toBe(`${item.name}.dbml`)
   const content = dbml.content.toString('utf8')
   expect(content).toContain('Table users')
+  expect(content).toContain('id bigint [pk, increment]')
   expect(content).toContain('email varchar(255) [unique, not null]')
+  expect(content).toContain('created_at timestamp [not null, default: `now()`]')
   expect(content).toContain('author_id bigint [not null]')
   expect(content).toContain('Ref: users.id < posts.author_id')
 })

@@ -26,7 +26,7 @@ export type SidebarTableColumnProps = {
 
 export const SidebarTableColumn = memo(
   ({ nodeId, value, index, total, setNodes, readOnly }: SidebarTableColumnProps) => {
-    const { id, name, description } = value
+    const { id, name, defaultValue, description } = value
     const { startEditing, stopEditing } = useEditingPresence()
 
     const handleChangeNodeValue = (newValue: Partial<DatabaseDiagramNodeDataValue>) =>
@@ -120,6 +120,19 @@ export const SidebarTableColumn = memo(
             readOnly={readOnly}
           />
         </div>
+
+        {defaultValue !== undefined && (
+          <Input
+            type='text'
+            aria-label='Column default'
+            placeholder='Default, e.g. 0, now()'
+            value={defaultValue}
+            onChange={(e) => handleChangeNodeValue({ id, defaultValue: e.target.value })}
+            onFocus={() => startEditing(nodeId, `value:${id}:defaultValue`)}
+            onBlur={stopEditing}
+            disabled={readOnly}
+          />
+        )}
 
         {description !== undefined && (
           <Textarea

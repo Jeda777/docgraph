@@ -62,6 +62,8 @@ export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSch
           index: value.index,
           foreignKey: value.foreignKey,
           ...(value.unsigned !== undefined ? { unsigned: value.unsigned } : {}),
+          ...(value.increment !== undefined ? { increment: value.increment } : {}),
+          ...(value.defaultValue ? { defaultValue: value.defaultValue } : {}),
           ...(value.description ? { description: value.description } : {}),
         })),
         ...(indexes.length ? { indexes } : {}),
