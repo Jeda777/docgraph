@@ -5,6 +5,7 @@ import {
   DATABASE_DIAGRAM_NODE_TYPE,
   type DatabaseDiagramEdgeData,
   type DatabaseDiagramNodeData,
+  type DatabaseDiagramNodeDataCheck,
   type DatabaseDiagramNodeDataConstraint,
   type DatabaseDiagramNodeDataValue,
   type DatabaseSchema,
@@ -73,11 +74,26 @@ const buildTableData = (
     }
   })
 
+  // Each existing check lends its id once, so repeated expressions still get unique ids.
+  const unclaimedChecks = [...(existing?.checks ?? [])]
+  const checks = (table.checks ?? []).map((check): DatabaseDiagramNodeDataCheck => {
+    const match = unclaimedChecks.findIndex(
+      (previous) => previous.expression.trim() === check.expression.trim(),
+    )
+    const [previous] = match === -1 ? [] : unclaimedChecks.splice(match, 1)
+    return {
+      id: previous?.id ?? randomId(),
+      expression: check.expression,
+      ...(check.name ? { name: check.name } : {}),
+    }
+  })
+
   return {
     name: table.name,
     color: table.color ?? existing?.color ?? fallbackColor,
     values,
     ...(constraints.length ? { constraints } : {}),
+    ...(checks.length ? { checks } : {}),
     ...(table.description !== undefined
       ? table.description
         ? { description: table.description }

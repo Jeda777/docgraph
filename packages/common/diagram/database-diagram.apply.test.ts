@@ -92,6 +92,40 @@ describe('applyDatabaseSchema', () => {
     expect(jobs.columns[2]).not.toHaveProperty('defaultValue')
   })
 
+  it('keeps check constraints and their ids, leaving out blank ones', () => {
+    const schema = schemaOf({
+      tables: [
+        {
+          name: 'items',
+          columns: [{ name: 'price', type: 'int' }],
+          checks: [
+            { expression: 'price > 0', name: 'positive_price' },
+            { expression: 'price < 1000' },
+          ],
+        },
+      ],
+    })
+
+    const first = applyDatabaseSchema(EMPTY, schema, 'replace')
+    const second = applyDatabaseSchema(first, schema, 'replace')
+    const checksOf = (document: DiagramDocument) =>
+      (document.nodes[0].data as { checks: { id: string }[] }).checks
+
+    expect(toDatabaseSchema(second).tables[0].checks).toEqual([
+      { expression: 'price > 0', name: 'positive_price' },
+      { expression: 'price < 1000' },
+    ])
+    expect(checksOf(second).map((check) => check.id)).toEqual(
+      checksOf(first).map((check) => check.id),
+    )
+
+    const blank = {
+      ...first.nodes[0],
+      data: { ...(first.nodes[0].data as object), checks: [{ id: 'x', expression: '  ' }] },
+    }
+    expect(toDatabaseSchema({ nodes: [blank], edges: [] }).tables[0]).not.toHaveProperty('checks')
+  })
+
   it('keeps ids, positions and colors of tables matched by name', () => {
     const first = applyDatabaseSchema(EMPTY, BLOG, 'replace')
     const moved = {

@@ -48,6 +48,11 @@ export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSch
         type: constraint.type,
         columns: constraint.columns.flatMap((id) => columnNameById.get(id) ?? []),
       }))
+      const checks = (data.checks ?? []).flatMap(({ expression, name }) =>
+        expression.trim()
+          ? [{ expression: expression.trim(), ...(name?.trim() ? { name: name.trim() } : {}) }]
+          : [],
+      )
 
       return {
         name: data.name,
@@ -67,6 +72,7 @@ export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSch
           ...(value.description ? { description: value.description } : {}),
         })),
         ...(indexes.length ? { indexes } : {}),
+        ...(checks.length ? { checks } : {}),
       }
     }),
     relations,

@@ -159,6 +159,37 @@ describe('SidebarTable', () => {
     expect(screen.getAllByRole('textbox', { name: 'Column name' })).toHaveLength(3)
   })
 
+  it('adds, edits and deletes a check', () => {
+    renderTable()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add constraint' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Check' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Check expression' }), {
+      target: { value: 'id > 0' },
+    })
+
+    expect(users()?.data.checks).toEqual([{ id: expect.any(String), expression: 'id > 0' }])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete check (id > 0)' }))
+
+    expect(users()?.data.checks).toEqual([])
+    expect(screen.queryByRole('textbox', { name: 'Check expression' })).toBeNull()
+  })
+
+  it('duplicates checks under fresh ids', () => {
+    renderTable({
+      initial: [
+        { ...USERS, data: { ...USERS.data, checks: [{ id: 'ck', expression: 'id > 0' }] } },
+      ],
+    })
+
+    fireEvent.click(screen.getByRole('button', { name: 'Duplicate table' }))
+
+    const [, copy] = nodes
+    expect(copy.data.checks).toEqual([{ id: expect.any(String), expression: 'id > 0' }])
+    expect(copy.data.checks?.[0].id).not.toBe('ck')
+  })
+
   it('deletes the table', () => {
     renderTable()
 

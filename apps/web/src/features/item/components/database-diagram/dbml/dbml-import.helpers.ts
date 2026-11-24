@@ -131,9 +131,9 @@ const parseIndexes = (table: Table): ParsedIndexes => {
 }
 
 /**
- * A table with the columns, indexes, color and note of its `~partial` injections, which
- * the parser keeps apart. Columns stay where they were written; a table's own column
- * wins over a partial's, and a later partial over an earlier one.
+ * A table with the columns, indexes, checks, color and note of its `~partial` injections,
+ * which the parser keeps apart. Columns stay where they were written; a table's own
+ * column wins over a partial's, and a later partial over an earlier one.
  */
 const withPartials = (table: Table, partials: readonly TablePartial[]): Table => {
   if (!table.partials.length) return table
@@ -166,6 +166,7 @@ const withPartials = (table: Table, partials: readonly TablePartial[]): Table =>
     ...table,
     fields: written.filter((field) => winner.get(field.name) === field),
     indexes: [...injected.flatMap(({ partial }) => partial.indexes), ...table.indexes],
+    checks: [...injected.flatMap(({ partial }) => partial.checks), ...table.checks],
     headerColor: table.headerColor ?? lastWith('headerColor'),
     note: table.note ?? lastWith('note'),
   }
@@ -240,6 +241,13 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
     const name = qualifiedName(table.schemaName, table.name)
     const indexes = indexesByTable.get(name) ?? parseIndexes(table)
     const color = nearestColor(table.headerColor)
+    // A column check is the same constraint as a table check, which is all the diagram keeps.
+    const checks = [...table.fields.flatMap((field) => field.checks), ...table.checks].map(
+      ({ expression, name: checkName }) => ({
+        expression,
+        ...(checkName ? { name: checkName } : {}),
+      }),
+    )
 
     return {
       name,
@@ -267,6 +275,7 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
         }
       }),
       ...(indexes.composite.length ? { indexes: indexes.composite } : {}),
+      ...(checks.length ? { checks } : {}),
     }
   })
 
@@ -309,10 +318,11 @@ const formatErrors = (source: string, errors: readonly Readonly<CompileError>[])
 
 /**
  * Reads DBML into a layout-free schema. What the diagram can't hold is dropped: enum
- * definitions (columns keep the enum name as their type), checks, expression indexes,
- * table groups and sticky notes. DBML has no foreign key flag or relation nullability,
- * so both are derived: a column is a foreign key when it is the referencing side of a
- * ref, and a relation is nullable when that column is.
+ * definitions (columns keep the enum name as their type), expression indexes, table
+ * groups and sticky notes. Column checks become checks of their table. DBML has no
+ * foreign key flag or relation nullability, so both are derived: a column is a foreign
+ * key when it is the referencing side of a ref, and a relation is nullable when that
+ * column is.
  */
 export const parseDbml = (source: string): DbmlParseResult => {
   const layout = new MemoryProjectLayout()

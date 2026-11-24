@@ -74,6 +74,41 @@ describe('toDbml', () => {
     expect(dbml).toContain('  blank text [not null]')
   })
 
+  it('writes checks after the indexes, leaving out expressions with a backtick', () => {
+    const dbml = toDbml(
+      schemaOf({
+        tables: [
+          {
+            name: 'items',
+            description: 'Stock',
+            columns: [{ name: 'price', type: 'int', index: true }],
+            checks: [
+              { expression: 'price > 0', name: "it's positive" },
+              { expression: 'price < 1000' },
+              { expression: '`price` > 1' },
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(dbml).toBe(`Table items {
+  price int [not null]
+
+  indexes {
+    price
+  }
+
+  checks {
+    \`price > 0\` [name: 'it\\'s positive']
+    \`price < 1000\`
+  }
+
+  Note: 'Stock'
+}
+`)
+  })
+
   it('writes each relation with its operator and referential actions', () => {
     const table = (name: string) => ({ name, columns: [{ name: 'id', type: 'int' }] })
     const dbml = toDbml(
