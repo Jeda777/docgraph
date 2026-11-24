@@ -116,6 +116,27 @@ describe('SidebarTable', () => {
     expect(screen.queryByRole('textbox', { name: 'Column default' })).toBeNull()
   })
 
+  it('adds, edits and removes a column description', () => {
+    renderTable()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Column options' })[1])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add description' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Column description' }), {
+      target: { value: 'Login address' },
+    })
+
+    expect(users()?.data.values.map((value) => value.description)).toEqual([
+      undefined,
+      'Login address',
+    ])
+
+    // "Add description" keeps the menu open, so "Remove description" is already there.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove description' }))
+
+    expect(users()?.data.values[1]).not.toHaveProperty('description')
+    expect(screen.queryByRole('textbox', { name: 'Column description' })).toBeNull()
+  })
+
   it('toggles auto-increment of a numeric column', () => {
     renderTable()
 
