@@ -71,11 +71,19 @@ export type DatabaseDiagramNodeDataConstraint = z.infer<
   typeof databaseDiagramNodeDataConstraintSchema
 >
 
+export const databaseDiagramNodeDataCheckSchema = z.object({
+  id: nonEmptyStringSchema,
+  expression: z.string(),
+  name: z.string().optional(),
+})
+export type DatabaseDiagramNodeDataCheck = z.infer<typeof databaseDiagramNodeDataCheckSchema>
+
 export const databaseDiagramNodeDataSchema = z.object({
   name: nonEmptyStringSchema,
   color: z.enum(NODE_COLORS),
   values: z.array(databaseDiagramNodeDataValueSchema),
   constraints: z.array(databaseDiagramNodeDataConstraintSchema).optional(),
+  checks: z.array(databaseDiagramNodeDataCheckSchema).optional(),
   description: z.string().optional(),
 })
 export type DatabaseDiagramNodeData = z.infer<typeof databaseDiagramNodeDataSchema>
@@ -159,6 +167,11 @@ export const databaseSchemaIndexSchema = z.object({
   columns: z.array(nonEmptyStringSchema).min(1).describe('Column names of this table'),
 })
 
+export const databaseSchemaCheckSchema = z.object({
+  expression: nonEmptyStringSchema.describe('SQL boolean expression, e.g. "price > 0"'),
+  name: nonEmptyStringSchema.optional().describe('Constraint name'),
+})
+
 export const databaseSchemaTableSchema = z.object({
   name: nonEmptyStringSchema,
   description: z.string().optional(),
@@ -168,6 +181,7 @@ export const databaseSchemaTableSchema = z.object({
     .array(databaseSchemaIndexSchema)
     .optional()
     .describe('Composite (multi-column) indexes and unique constraints'),
+  checks: z.array(databaseSchemaCheckSchema).optional().describe('CHECK constraints'),
 })
 export type DatabaseSchemaTable = z.infer<typeof databaseSchemaTableSchema>
 

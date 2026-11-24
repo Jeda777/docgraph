@@ -132,7 +132,7 @@ export const createMcpServer = (actor: Actor) => {
     {
       title: 'Read database diagram',
       description:
-        'Tables, columns, indexes and relations of a DATABASE_DIAGRAM item, without layout.',
+        'Tables, columns, indexes, checks and relations of a DATABASE_DIAGRAM item, without layout.',
       inputSchema: { itemId: idSchema },
       annotations: { readOnlyHint: true },
     },

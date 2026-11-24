@@ -35,7 +35,7 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
 
   const handleDeleteNode = () => setNodes((state) => state.filter((n) => n.id !== nodeId))
 
-  /** Columns and constraints are copied under fresh ids, keeping their links. */
+  /** Columns, constraints and checks are copied under fresh ids, keeping their links. */
   const handleDuplicateNode = () =>
     setNodes((state) =>
       duplicateNode(state, nodeId, (data) => {
@@ -52,6 +52,7 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
               return mapped ? [mapped] : []
             }),
           })),
+          checks: data.checks?.map((check) => ({ ...check, id: crypto.randomUUID() })),
         }
       }),
     )
@@ -81,6 +82,26 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
             }
           : c,
       ),
+    }))
+
+  const handleCheckAdd = () =>
+    updateData((data) => ({
+      ...data,
+      checks: [...(data.checks ?? []), { id: crypto.randomUUID(), expression: '' }],
+    }))
+
+  const handleCheckChange = (checkId: string, expression: string) =>
+    updateData((data) => ({
+      ...data,
+      checks: data.checks?.map((check) =>
+        check.id === checkId ? { ...check, expression } : check,
+      ),
+    }))
+
+  const handleCheckDelete = (checkId: string) =>
+    updateData((data) => ({
+      ...data,
+      checks: data.checks?.filter((check) => check.id !== checkId),
     }))
 
   const handleValueAdd = () =>
@@ -184,6 +205,32 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
             )
           })}
 
+          {data.checks?.map((check) => (
+            <div key={check.id} className='flex items-center gap-1'>
+              <span className='text-xs font-semibold uppercase w-12 shrink-0'>Check</span>
+              <Input
+                type='text'
+                aria-label='Check expression'
+                placeholder='e.g. price > 0'
+                title={check.name}
+                value={check.expression}
+                onChange={(e) => handleCheckChange(check.id, e.target.value)}
+                onFocus={() => startEditing(nodeId, `check:${check.id}`)}
+                onBlur={stopEditing}
+                disabled={readOnly}
+              />
+              <Button
+                variant='ghost'
+                size='icon-sm'
+                aria-label={`Delete check${check.expression ? ` (${check.expression})` : ''}`}
+                onClick={() => handleCheckDelete(check.id)}
+                disabled={readOnly}
+              >
+                <Trash />
+              </Button>
+            </div>
+          ))}
+
           {data.values?.map((x, i) => (
             <SidebarTableColumn
               key={x.id}
@@ -221,6 +268,9 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
                   onClick={() => handleConstraintAdd('index')}
                 >
                   <Plus /> Index
+                </DropdownMenuItem>
+                <DropdownMenuItem className='cursor-pointer' onClick={handleCheckAdd}>
+                  <Plus /> Check
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

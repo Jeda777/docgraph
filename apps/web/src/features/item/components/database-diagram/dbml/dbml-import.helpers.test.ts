@@ -85,6 +85,32 @@ describe('parseDbml', () => {
     ])
   })
 
+  it('reads column, table and table partial checks as checks of the table', () => {
+    const [table] = parse(`
+      TablePartial limits {
+        qty int [check: \`qty >= 0\`]
+        checks {
+          \`qty < 100\` [name: 'qty_max']
+        }
+      }
+      Table items {
+        price int [check: \`price > 0\`]
+        ~limits
+        checks {
+          \`price > qty\` [name: 'price_over_qty']
+        }
+      }
+    `).tables
+
+    expect(table.checks).toEqual([
+      { expression: 'price > 0' },
+      { expression: 'qty >= 0' },
+      { expression: 'qty < 100', name: 'qty_max' },
+      { expression: 'price > qty', name: 'price_over_qty' },
+    ])
+    expect(parse('Table t {\n  id int\n}').tables[0]).not.toHaveProperty('checks')
+  })
+
   it('adds the columns, indexes and color of table partials where they are injected', () => {
     const [table] = parse(`
       TablePartial timestamps [headercolor: #ef4444] {
@@ -288,6 +314,10 @@ describe('parseDbml', () => {
             },
           ],
           indexes: [{ type: 'index', columns: ['author id', 'slug'] }],
+          checks: [
+            { expression: "slug <> ''", name: 'slug_set' },
+            { expression: 'id > 0\n  AND id < 1000000' },
+          ],
         },
       ],
       relations: [

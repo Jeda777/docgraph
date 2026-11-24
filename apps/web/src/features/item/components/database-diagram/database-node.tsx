@@ -15,7 +15,10 @@ import { getDataTypeColor } from './data-types'
 export type DatabaseNode = Node<DatabaseDiagramNodeData, typeof DATABASE_DIAGRAM_NODE_TYPE>
 
 export const DatabaseNode = memo(
-  ({ id, data: { color, name, values, constraints, description } }: NodeProps<DatabaseNode>) => {
+  ({
+    id,
+    data: { color, name, values, constraints, checks, description },
+  }: NodeProps<DatabaseNode>) => {
     const editors = useRemoteNodeEditors(id)
 
     return (
@@ -46,6 +49,15 @@ export const DatabaseNode = memo(
                   .map((v) => v.name)
                   .join(', ')}
                 )
+              </p>
+            ))}
+          {checks
+            ?.filter((check) => check.expression.trim() || editors[`check:${check.id}`])
+            .map((check) => (
+              <p key={check.id} className='text-xs text-muted-foreground'>
+                <span className='font-semibold uppercase'>Check</span>
+                {check.name && ` ${check.name}`} ({check.expression})
+                {editors[`check:${check.id}`] && <EditCaret color={editors[`check:${check.id}`]} />}
               </p>
             ))}
         </BaseNodeHeader>
