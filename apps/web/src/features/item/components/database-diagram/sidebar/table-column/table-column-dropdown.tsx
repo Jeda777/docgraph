@@ -10,6 +10,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { isNumericType } from '../../data-types'
 
+/** Column fields that are absent until added from the menu. */
+export type OptionalColumnField = keyof Pick<
+  DatabaseDiagramNodeDataValue,
+  'defaultValue' | 'description'
+>
+
 export type TableColumnDropdownProps = {
   value: DatabaseDiagramNodeDataValue
   isLast: boolean
@@ -17,7 +23,7 @@ export type TableColumnDropdownProps = {
   handleChangeNodeValue: (newValue: Partial<DatabaseDiagramNodeDataValue>) => void
   handleMoveNodeValue: (direction: -1 | 1) => void
   handleDeleteNodeValue: (id: DatabaseDiagramNodeDataValue['id']) => void
-  handleRemoveDefault: () => void
+  handleRemoveField: (field: OptionalColumnField) => void
   readOnly?: boolean
 }
 
@@ -40,7 +46,7 @@ export const TableColumnDropdown = ({
   handleChangeNodeValue,
   handleMoveNodeValue,
   handleDeleteNodeValue,
-  handleRemoveDefault,
+  handleRemoveField,
   readOnly,
 }: TableColumnDropdownProps) => {
   return (
@@ -136,7 +142,10 @@ export const TableColumnDropdown = ({
         )}
 
         {defaultValue !== undefined && (
-          <DropdownMenuItem className='cursor-pointer' onClick={handleRemoveDefault}>
+          <DropdownMenuItem
+            className='cursor-pointer'
+            onClick={() => handleRemoveField('defaultValue')}
+          >
             <X /> Remove default
           </DropdownMenuItem>
         )}
@@ -148,6 +157,15 @@ export const TableColumnDropdown = ({
             onClick={() => handleChangeNodeValue({ id, description: '' })}
           >
             <Plus /> Add description
+          </DropdownMenuItem>
+        )}
+
+        {description !== undefined && (
+          <DropdownMenuItem
+            className='cursor-pointer'
+            onClick={() => handleRemoveField('description')}
+          >
+            <X /> Remove description
           </DropdownMenuItem>
         )}
 

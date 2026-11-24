@@ -13,7 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { useEditingPresence } from '@/features/item/hooks/use-editing-presence'
 import { dataTypes } from '../../data-types'
 import type { DatabaseNode as DatabaseNodeType } from '../../database-node'
-import { TableColumnDropdown } from './table-column-dropdown'
+import { type OptionalColumnField, TableColumnDropdown } from './table-column-dropdown'
 
 export type SidebarTableColumnProps = {
   nodeId: string
@@ -46,7 +46,7 @@ export const SidebarTableColumn = memo(
         ),
       )
 
-    const handleRemoveDefault = () =>
+    const handleRemoveField = (field: OptionalColumnField) =>
       setNodes((state) =>
         state.map((n) =>
           n.id === nodeId
@@ -56,7 +56,7 @@ export const SidebarTableColumn = memo(
                   ...n.data,
                   values: n.data.values.map((v) => {
                     if (v.id !== id) return v
-                    const { defaultValue: _removed, ...rest } = v
+                    const { [field]: _removed, ...rest } = v
                     return rest
                   }),
                 },
@@ -133,7 +133,7 @@ export const SidebarTableColumn = memo(
             handleChangeNodeValue={handleChangeNodeValue}
             handleDeleteNodeValue={handleDeleteNodeValue}
             handleMoveNodeValue={handleMoveNodeValue}
-            handleRemoveDefault={handleRemoveDefault}
+            handleRemoveField={handleRemoveField}
             isFirst={index === 0}
             isLast={index === total - 1}
             value={value}
@@ -156,6 +156,7 @@ export const SidebarTableColumn = memo(
 
         {description !== undefined && (
           <Textarea
+            aria-label='Column description'
             value={description}
             placeholder='Description'
             onChange={(e) => handleChangeNodeValue({ id, description: e.target.value })}
