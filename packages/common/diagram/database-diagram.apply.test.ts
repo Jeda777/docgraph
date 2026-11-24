@@ -71,6 +71,27 @@ describe('applyDatabaseSchema', () => {
     expect(posts?.columns.find((column) => column.name === 'slug')?.foreignKey).toBe(false)
   })
 
+  it('keeps column defaults and auto-increment, leaving out empty defaults', () => {
+    const schema = schemaOf({
+      tables: [
+        {
+          name: 'jobs',
+          columns: [
+            { name: 'id', type: 'bigint', primaryKey: true, increment: true },
+            { name: 'status', type: 'text', defaultValue: "'queued'" },
+            { name: 'note', type: 'text', defaultValue: '' },
+          ],
+        },
+      ],
+    })
+
+    const [jobs] = toDatabaseSchema(applyDatabaseSchema(EMPTY, schema, 'replace')).tables
+
+    expect(jobs.columns[0]).toMatchObject({ increment: true })
+    expect(jobs.columns[1]).toMatchObject({ defaultValue: "'queued'" })
+    expect(jobs.columns[2]).not.toHaveProperty('defaultValue')
+  })
+
   it('keeps ids, positions and colors of tables matched by name', () => {
     const first = applyDatabaseSchema(EMPTY, BLOG, 'replace')
     const moved = {

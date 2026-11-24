@@ -41,6 +41,26 @@ const columnType = (type: string, unsigned: boolean | undefined) => {
   return PLAIN_TYPE.test(full) ? full : quoted(full)
 }
 
+const SQL_STRING = /^'((?:[^']|'')*)'$/s
+const KEYWORD_DEFAULT = /^(true|false|null)$/i
+const NUMBER_DEFAULT = /^-?\d+(\.\d+)?$/
+
+/**
+ * A SQL default as a DBML `default:` value. Numbers and keywords stay bare, string literals
+ * become DBML strings and anything else an expression. Expressions with a backtick can't be
+ * written in DBML and are left out.
+ */
+const defaultSetting = (sql: string | undefined) => {
+  const value = sql?.trim()
+  if (!value) return undefined
+  // Only numbers that read back unchanged, so `1.50` stays as written.
+  if (NUMBER_DEFAULT.test(value) && String(Number(value)) === value) return `default: ${value}`
+  if (KEYWORD_DEFAULT.test(value)) return `default: ${value.toLowerCase()}`
+  const string = SQL_STRING.exec(value)
+  if (string) return `default: ${text(string[1].replaceAll("''", "'"))}`
+  return value.includes('`') ? undefined : `default: \`${value}\``
+}
+
 const settings = (items: (string | false | undefined)[]) => {
   const present = items.filter(Boolean)
   return present.length ? ` [${present.join(', ')}]` : ''
@@ -57,6 +77,8 @@ const exportTable = (table: DatabaseSchemaTable) => {
         column.primaryKey && 'pk',
         column.unique && 'unique',
         !column.primaryKey && !column.nullable && 'not null',
+        column.increment && 'increment',
+        defaultSetting(column.defaultValue),
         column.description && `note: ${text(column.description)}`,
       ])}`,
     )
@@ -94,8 +116,8 @@ const exportRelation = (relation: DatabaseSchemaRelation) =>
 
 /**
  * Writes a schema as DBML. What DBML can't express is left out: tables without columns
- * (named in a comment instead) and repeated relations between the same two columns,
- * which DBML rejects.
+ * (named in a comment instead), repeated relations between the same two columns, which
+ * DBML rejects, and default expressions containing a backtick.
  */
 export const toDbml = ({ tables, relations }: DatabaseSchema) => {
   const exported = tables.filter((table) => table.columns.length)

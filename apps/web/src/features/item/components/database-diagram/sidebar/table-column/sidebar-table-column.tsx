@@ -26,7 +26,7 @@ export type SidebarTableColumnProps = {
 
 export const SidebarTableColumn = memo(
   ({ nodeId, value, index, total, setNodes, readOnly }: SidebarTableColumnProps) => {
-    const { id, name, description } = value
+    const { id, name, defaultValue, description } = value
     const { startEditing, stopEditing } = useEditingPresence()
 
     const handleChangeNodeValue = (newValue: Partial<DatabaseDiagramNodeDataValue>) =>
@@ -40,6 +40,25 @@ export const SidebarTableColumn = memo(
                   values: n.data.values.map((v) =>
                     v.id === newValue.id ? { ...v, ...newValue } : v,
                   ),
+                },
+              }
+            : n,
+        ),
+      )
+
+    const handleRemoveDefault = () =>
+      setNodes((state) =>
+        state.map((n) =>
+          n.id === nodeId
+            ? {
+                ...n,
+                data: {
+                  ...n.data,
+                  values: n.data.values.map((v) => {
+                    if (v.id !== id) return v
+                    const { defaultValue: _removed, ...rest } = v
+                    return rest
+                  }),
                 },
               }
             : n,
@@ -114,12 +133,26 @@ export const SidebarTableColumn = memo(
             handleChangeNodeValue={handleChangeNodeValue}
             handleDeleteNodeValue={handleDeleteNodeValue}
             handleMoveNodeValue={handleMoveNodeValue}
+            handleRemoveDefault={handleRemoveDefault}
             isFirst={index === 0}
             isLast={index === total - 1}
             value={value}
             readOnly={readOnly}
           />
         </div>
+
+        {defaultValue !== undefined && (
+          <Input
+            type='text'
+            aria-label='Column default'
+            placeholder='Default, e.g. 0, now()'
+            value={defaultValue}
+            onChange={(e) => handleChangeNodeValue({ id, defaultValue: e.target.value })}
+            onFocus={() => startEditing(nodeId, `value:${id}:defaultValue`)}
+            onBlur={stopEditing}
+            disabled={readOnly}
+          />
+        )}
 
         {description !== undefined && (
           <Textarea

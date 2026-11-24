@@ -53,7 +53,9 @@ export const databaseDiagramNodeDataValueSchema = z.object({
   index: z.boolean(),
   unique: z.boolean(),
   unsigned: z.boolean().optional(),
+  increment: z.boolean().optional(),
   nullable: z.boolean(),
+  defaultValue: z.string().optional(),
   description: z.string().optional(),
 })
 export type DatabaseDiagramNodeDataValue = z.infer<typeof databaseDiagramNodeDataValueSchema>
@@ -144,6 +146,11 @@ export const databaseSchemaColumnSchema = z.object({
     .optional()
     .describe('Defaults to true when the column is the `to` side of a relation'),
   unsigned: z.boolean().optional(),
+  increment: z.boolean().optional().describe('Auto-increment, e.g. a serial primary key'),
+  defaultValue: z
+    .string()
+    .optional()
+    .describe(`SQL default as written in DDL, e.g. "0", "'draft'", "now()"`),
   description: z.string().optional(),
 })
 

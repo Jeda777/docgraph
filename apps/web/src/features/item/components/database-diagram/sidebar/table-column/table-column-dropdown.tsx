@@ -1,5 +1,5 @@
 import type { DatabaseDiagramNodeDataValue } from '@docgraph/common/schemas'
-import { ArrowDown, ArrowUp, Menu, Plus, Trash } from 'lucide-react'
+import { ArrowDown, ArrowUp, Menu, Plus, Trash, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ export type TableColumnDropdownProps = {
   handleChangeNodeValue: (newValue: Partial<DatabaseDiagramNodeDataValue>) => void
   handleMoveNodeValue: (direction: -1 | 1) => void
   handleDeleteNodeValue: (id: DatabaseDiagramNodeDataValue['id']) => void
+  handleRemoveDefault: () => void
   readOnly?: boolean
 }
 
@@ -27,7 +28,9 @@ export const TableColumnDropdown = ({
     primaryKey,
     unique,
     unsigned,
+    increment,
     nullable,
+    defaultValue,
     description,
     index: isIndex,
     value,
@@ -37,11 +40,16 @@ export const TableColumnDropdown = ({
   handleChangeNodeValue,
   handleMoveNodeValue,
   handleDeleteNodeValue,
+  handleRemoveDefault,
   readOnly,
 }: TableColumnDropdownProps) => {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button size='icon-sm' variant='ghost' disabled={readOnly} />}>
+      <DropdownMenuTrigger
+        render={
+          <Button size='icon-sm' variant='ghost' aria-label='Column options' disabled={readOnly} />
+        }
+      >
         <Menu />
       </DropdownMenuTrigger>
 
@@ -76,6 +84,15 @@ export const TableColumnDropdown = ({
           </DropdownMenuCheckboxItem>
         )}
 
+        {(isNumericType(value) || increment) && (
+          <DropdownMenuCheckboxItem
+            checked={increment ?? false}
+            onCheckedChange={(e) => handleChangeNodeValue({ id, increment: e })}
+          >
+            Auto Increment
+          </DropdownMenuCheckboxItem>
+        )}
+
         <DropdownMenuCheckboxItem
           checked={unique}
           onCheckedChange={(e) => handleChangeNodeValue({ id, unique: e })}
@@ -107,6 +124,22 @@ export const TableColumnDropdown = ({
         >
           <ArrowDown /> Move down
         </DropdownMenuItem>
+
+        {defaultValue === undefined && (
+          <DropdownMenuItem
+            className='cursor-pointer'
+            closeOnClick={false}
+            onClick={() => handleChangeNodeValue({ id, defaultValue: '' })}
+          >
+            <Plus /> Add default
+          </DropdownMenuItem>
+        )}
+
+        {defaultValue !== undefined && (
+          <DropdownMenuItem className='cursor-pointer' onClick={handleRemoveDefault}>
+            <X /> Remove default
+          </DropdownMenuItem>
+        )}
 
         {description === undefined && (
           <DropdownMenuItem

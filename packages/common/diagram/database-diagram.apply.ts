@@ -48,6 +48,8 @@ const buildTableData = (
       unique: column.unique,
       nullable: column.nullable,
       ...(column.unsigned !== undefined ? { unsigned: column.unsigned } : {}),
+      ...(column.increment !== undefined ? { increment: column.increment } : {}),
+      ...(column.defaultValue ? { defaultValue: column.defaultValue } : {}),
       ...(column.description ? { description: column.description } : {}),
     }
   })

@@ -98,6 +98,33 @@ describe('SidebarTable', () => {
     expect(users()?.data.description).toBe('Registered users')
   })
 
+  it('adds and edits a column default', () => {
+    renderTable()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Column options' })[1])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add default' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Column default' }), {
+      target: { value: 'now()' },
+    })
+
+    expect(users()?.data.values.map((value) => value.defaultValue)).toEqual([undefined, 'now()'])
+
+    // "Add default" keeps the menu open, so "Remove default" is already there.
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove default' }))
+
+    expect(users()?.data.values[1]).not.toHaveProperty('defaultValue')
+    expect(screen.queryByRole('textbox', { name: 'Column default' })).toBeNull()
+  })
+
+  it('toggles auto-increment of a numeric column', () => {
+    renderTable()
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Column options' })[0])
+    fireEvent.click(screen.getByRole('menuitemcheckbox', { name: 'Auto Increment' }))
+
+    expect(users()?.data.values[0].increment).toBe(true)
+  })
+
   it('appends a varchar column', () => {
     renderTable()
 

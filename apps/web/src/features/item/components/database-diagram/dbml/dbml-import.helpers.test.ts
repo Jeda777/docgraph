@@ -59,6 +59,32 @@ describe('parseDbml', () => {
     ])
   })
 
+  it('reads auto-increment and defaults as SQL', () => {
+    const [table] = parse(`
+      Table jobs {
+        id bigint [pk, increment]
+        attempts int [default: -1.5]
+        done boolean [default: false]
+        parent int [default: null]
+        status text [default: 'it\\'s queued']
+        created_at timestamp [default: \`now()\`]
+        note text
+      }
+    `).tables
+
+    expect(
+      table.columns.map(({ name, increment, defaultValue }) => [name, increment, defaultValue]),
+    ).toEqual([
+      ['id', true, undefined],
+      ['attempts', undefined, '-1.5'],
+      ['done', undefined, 'false'],
+      ['parent', undefined, 'null'],
+      ['status', undefined, "'it''s queued'"],
+      ['created_at', undefined, 'now()'],
+      ['note', undefined, undefined],
+    ])
+  })
+
   it('adds the columns, indexes and color of table partials where they are injected', () => {
     const [table] = parse(`
       TablePartial timestamps [headercolor: #ef4444] {
@@ -236,8 +262,15 @@ describe('parseDbml', () => {
           color: 'emerald',
           description: "Line one\nIt's line two",
           columns: [
-            { name: 'id', type: 'bigint', primaryKey: true, foreignKey: false },
-            { name: 'note', type: 'decimal(10,2)', unsigned: true, foreignKey: false },
+            { name: 'id', type: 'bigint', primaryKey: true, foreignKey: false, increment: true },
+            {
+              name: 'note',
+              type: 'decimal(10,2)',
+              unsigned: true,
+              foreignKey: false,
+              defaultValue: '0.5',
+            },
+            { name: 'joined_at', type: 'date', foreignKey: false, defaultValue: 'current_date' },
           ],
         },
         {
@@ -246,7 +279,13 @@ describe('parseDbml', () => {
           columns: [
             { name: 'id', type: 'bigint', primaryKey: true, foreignKey: false },
             { name: 'author id', type: 'bigint', nullable: true, foreignKey: true, index: true },
-            { name: 'slug', type: 'varchar(100)', unique: true, foreignKey: false },
+            {
+              name: 'slug',
+              type: 'varchar(100)',
+              unique: true,
+              foreignKey: false,
+              defaultValue: "'it''s'",
+            },
           ],
           indexes: [{ type: 'index', columns: ['author id', 'slug'] }],
         },
