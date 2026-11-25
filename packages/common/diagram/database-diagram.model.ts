@@ -1,4 +1,6 @@
 import {
+  type AreaNodeData,
+  areaNodeDataSchema,
   type BaseEdge,
   type BaseNode,
   columnIdFromHandleId,
@@ -17,6 +19,7 @@ export type DiagramDocument = {
   nodes: DiagramNode[]
   edges: DiagramEdge[]
   enums?: DatabaseDiagramEnum[]
+  areas?: DiagramNode[]
 }
 
 export type SchemaApplySummary = {
@@ -30,6 +33,11 @@ export type TableNode = DiagramNode & { data: DatabaseDiagramNodeData }
 
 export const asTableNode = (node: DiagramNode): TableNode | undefined =>
   databaseDiagramNodeDataSchema.safeParse(node.data).success ? (node as TableNode) : undefined
+
+export type AreaDiagramNode = DiagramNode & { data: AreaNodeData }
+
+export const asAreaNode = (node: DiagramNode): AreaDiagramNode | undefined =>
+  areaNodeDataSchema.safeParse(node.data).success ? (node as AreaDiagramNode) : undefined
 
 export const edgeKey = (
   sourceNode: string,

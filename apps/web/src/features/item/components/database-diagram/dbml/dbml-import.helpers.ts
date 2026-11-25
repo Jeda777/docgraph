@@ -39,16 +39,22 @@ const qualifiedName = (schemaName: string | null, name: string) =>
 
 const columnKey = (table: string, column: string) => `${table}\0${column}`
 
-const hexToRgb = (hex: string) => {
+const HEX_COLOR = /^#([\da-f]{3}|[\da-f]{6})$/i
+
+/** A `#rgb` or `#rrggbb` color as `#rrggbb`. */
+const fullHex = (hex: string) => {
   const digits = hex.slice(1)
-  const full = digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits
-  const value = Number.parseInt(full, 16)
+  return `#${digits.length === 3 ? [...digits].map((digit) => digit + digit).join('') : digits}`
+}
+
+const hexToRgb = (hex: string) => {
+  const value = Number.parseInt(fullHex(hex).slice(1), 16)
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
 }
 
 /** The table color closest to a DBML `headercolor`. */
 const nearestColor = (hex: string | undefined): NodeColor | undefined => {
-  if (!hex || !/^#([\da-f]{3}|[\da-f]{6})$/i.test(hex)) return undefined
+  if (!hex || !HEX_COLOR.test(hex)) return undefined
   const rgb = hexToRgb(hex)
   const distance = (color: NodeColor) =>
     hexToRgb(DBML_HEADER_COLORS[color]).reduce(
@@ -320,7 +326,24 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
     })),
   }))
 
-  return { tables, ...(enums.length ? { enums } : {}), relations }
+  const groups = database.tableGroups.flatMap((group) => {
+    if (!group.name || !group.tables.length) return []
+    const color = group.color && HEX_COLOR.test(group.color) ? fullHex(group.color) : undefined
+    return [
+      {
+        name: group.name,
+        tables: group.tables.map((table) => qualifiedName(table.schemaName, table.name)),
+        ...(color ? { color } : {}),
+      },
+    ]
+  })
+
+  return {
+    tables,
+    ...(enums.length ? { enums } : {}),
+    ...(groups.length ? { groups } : {}),
+    relations,
+  }
 }
 
 const lineOf = (source: string, offset: number) => source.slice(0, offset).split('\n').length

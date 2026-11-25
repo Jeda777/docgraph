@@ -3,6 +3,7 @@ import {
   type DiagramGraphType,
   DOCUMENT_WRITE_MODES,
   databaseSchemaRelationSchema,
+  databaseSchemaSchema,
   databaseSchemaTableSchema,
   diagramGraphUpdateSchema,
   ITEM_TYPES,
@@ -67,6 +68,8 @@ const json = (value: unknown) => ({
 
 const schemaInput = {
   tables: z.array(databaseSchemaTableSchema).describe('Complete definitions of tables'),
+  enums: databaseSchemaSchema.shape.enums,
+  groups: databaseSchemaSchema.shape.groups,
   relations: z
     .array(databaseSchemaRelationSchema)
     .default([])
@@ -132,7 +135,7 @@ export const createMcpServer = (actor: Actor) => {
     {
       title: 'Read database diagram',
       description:
-        'Tables, columns, indexes, checks, enums and relations of a DATABASE_DIAGRAM item, without layout.',
+        'Tables, columns, indexes, checks, enums, table groups and relations of a DATABASE_DIAGRAM item, without layout. A group is an area drawn around its tables.',
       inputSchema: { itemId: idSchema },
       annotations: { readOnlyHint: true },
     },
@@ -147,7 +150,7 @@ export const createMcpServer = (actor: Actor) => {
     {
       title: 'Update database diagram',
       description:
-        'Writes tables, enums and relations into a DATABASE_DIAGRAM item. Every given table or enum is a complete definition (its columns or values replace the current ones). mode "merge" keeps tables, enums and relations that are not mentioned; mode "replace" removes them.',
+        'Writes tables, enums, table groups and relations into a DATABASE_DIAGRAM item. Every given table, enum or group is a complete definition (its columns, values or tables replace the current ones); a group is drawn as an area around its tables. mode "merge" keeps tables, enums, groups and relations that are not mentioned; mode "replace" removes them, but leaves the areas as they are when `groups` is omitted (areas without tables always stay).',
       inputSchema: {
         itemId: idSchema,
         mode: z.enum(SCHEMA_APPLY_MODES).default('merge'),
@@ -155,8 +158,13 @@ export const createMcpServer = (actor: Actor) => {
       },
       annotations: { destructiveHint: true, idempotentHint: true },
     },
-    async ({ itemId, mode, tables, relations }) => {
-      const { summary } = await updateDatabaseSchema(itemId, { tables, relations }, mode, actor)
+    async ({ itemId, mode, tables, enums, groups, relations }) => {
+      const { summary } = await updateDatabaseSchema(
+        itemId,
+        { tables, enums, groups, relations },
+        mode,
+        actor,
+      )
       return json({ itemId, mode, ...summary })
     },
   )
@@ -170,12 +178,21 @@ export const createMcpServer = (actor: Actor) => {
         projectId: idSchema,
         name: nameSchema,
         tables: schemaInput.tables.optional(),
+        enums: schemaInput.enums,
+        groups: schemaInput.groups,
         relations: schemaInput.relations,
       },
     },
-    async ({ projectId, name, tables, relations }) => {
+    async ({ projectId, name, tables, enums, groups, relations }) => {
       const { item, summary } = await createDatabaseDiagram(
-        { projectId, name, schema: tables ? { tables, relations } : undefined },
+        {
+          projectId,
+          name,
+          schema:
+            tables || enums || groups
+              ? { tables: tables ?? [], enums, groups, relations }
+              : undefined,
+        },
         actor,
       )
       return json({ item: { id: item.id, name: item.name, type: item.type }, ...summary })

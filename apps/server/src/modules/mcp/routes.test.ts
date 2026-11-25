@@ -127,6 +127,25 @@ describe('POST /mcp', () => {
     expect(schema.relations).toHaveLength(1)
   })
 
+  it('writes enums and table groups and reads them back', async () => {
+    const { apiKey, project } = await setup()
+    const item = await createItem(project.id)
+    const enums = [{ name: 'status', values: [{ name: 'draft' }, { name: 'published' }] }]
+    const groups = [{ name: 'auth', tables: ['users'], color: '#ff0000' }]
+
+    const update = await callTool(apiKey, 'update_database_schema', {
+      itemId: item.id,
+      mode: 'replace',
+      tables: [{ name: 'users', columns: [{ name: 'status', type: 'status' }] }],
+      enums,
+      groups,
+    })
+    expect(update.isError).toBe(false)
+
+    const read = await callTool(apiKey, 'get_database_schema', { itemId: item.id })
+    expect(JSON.parse(read.text)).toMatchObject({ enums, groups })
+  })
+
   it('creates a new diagram with a schema', async () => {
     const { apiKey, project } = await setup()
 

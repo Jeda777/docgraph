@@ -68,6 +68,23 @@ describe('updateDatabaseSchema', () => {
     expect(schema.enums).toEqual(enums)
   })
 
+  it('stores groups as areas, keeps them when omitted and removes them when empty', async () => {
+    const user = await createUser()
+    const project = await createProject({ isForAllUsers: true })
+    const item = await createItem(project.id)
+    const groups = [{ name: 'auth', tables: ['users'], color: '#ff0000' }]
+    const readGroups = async () => (await getDatabaseSchema(item.id, actorOf(user))).schema.groups
+
+    await updateDatabaseSchema(item.id, { ...SCHEMA, groups }, 'replace', actorOf(user))
+    expect(await readGroups()).toEqual(groups)
+
+    await updateDatabaseSchema(item.id, SCHEMA, 'replace', actorOf(user))
+    expect(await readGroups()).toEqual(groups)
+
+    await updateDatabaseSchema(item.id, { ...SCHEMA, groups: [] }, 'replace', actorOf(user))
+    expect(await readGroups()).toBeUndefined()
+  })
+
   it('reports an error when the item is archived while the update runs', async () => {
     const user = await createUser()
     const project = await createProject({ isForAllUsers: true })
