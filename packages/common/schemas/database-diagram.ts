@@ -66,6 +66,8 @@ export const databaseDiagramNodeDataConstraintSchema = z.object({
   id: nonEmptyStringSchema,
   type: z.enum(CONSTRAINT_TYPES),
   columns: z.array(nonEmptyStringSchema),
+  /** SQL expressions indexed after the columns, e.g. `lower(email)`. */
+  expressions: z.array(z.string()).optional(),
 })
 export type DatabaseDiagramNodeDataConstraint = z.infer<
   typeof databaseDiagramNodeDataConstraintSchema
@@ -162,10 +164,18 @@ export const databaseSchemaColumnSchema = z.object({
   description: z.string().optional(),
 })
 
-export const databaseSchemaIndexSchema = z.object({
-  type: z.enum(CONSTRAINT_TYPES),
-  columns: z.array(nonEmptyStringSchema).min(1).describe('Column names of this table'),
-})
+export const databaseSchemaIndexSchema = z
+  .object({
+    type: z.enum(CONSTRAINT_TYPES),
+    columns: z.array(nonEmptyStringSchema).default([]).describe('Column names of this table'),
+    expressions: z
+      .array(nonEmptyStringSchema)
+      .optional()
+      .describe('SQL expressions indexed after the columns, e.g. "lower(email)"'),
+  })
+  .refine((index) => index.columns.length || index.expressions?.length, {
+    message: 'An index needs at least one column or expression',
+  })
 
 export const databaseSchemaCheckSchema = z.object({
   expression: nonEmptyStringSchema.describe('SQL boolean expression, e.g. "price > 0"'),
@@ -180,7 +190,7 @@ export const databaseSchemaTableSchema = z.object({
   indexes: z
     .array(databaseSchemaIndexSchema)
     .optional()
-    .describe('Composite (multi-column) indexes and unique constraints'),
+    .describe('Composite (multi-column) and expression indexes and unique constraints'),
   checks: z.array(databaseSchemaCheckSchema).optional().describe('CHECK constraints'),
 })
 export type DatabaseSchemaTable = z.infer<typeof databaseSchemaTableSchema>

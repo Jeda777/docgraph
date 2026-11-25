@@ -87,9 +87,14 @@ const exportTable = (table: DatabaseSchemaTable) => {
   const indexes = [
     ...table.columns.filter((column) => column.index).map((column) => columnName(column.name)),
     ...(table.indexes ?? []).flatMap((index) => {
-      if (!index.columns.length) return []
-      const columns = index.columns.map(columnName)
-      const target = columns.length === 1 ? columns[0] : `(${columns.join(', ')})`
+      const expressions = index.expressions ?? []
+      if (expressions.some((expression) => expression.includes('`'))) return []
+      const parts = [
+        ...index.columns.map(columnName),
+        ...expressions.map((expression) => `\`${expression}\``),
+      ]
+      if (!parts.length) return []
+      const target = parts.length === 1 ? parts[0] : `(${parts.join(', ')})`
       return `${target}${settings([index.type === 'unique' && 'unique'])}`
     }),
   ]
@@ -124,7 +129,7 @@ const exportRelation = (relation: DatabaseSchemaRelation) =>
 /**
  * Writes a schema as DBML. What DBML can't express is left out: tables without columns
  * (named in a comment instead), repeated relations between the same two columns, which
- * DBML rejects, and default or check expressions containing a backtick.
+ * DBML rejects, and defaults, checks or indexes with an expression containing a backtick.
  */
 export const toDbml = ({ tables, relations }: DatabaseSchema) => {
   const exported = tables.filter((table) => table.columns.length)

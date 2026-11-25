@@ -25,7 +25,9 @@ describe('parseDbml', () => {
           (a, b) [unique]
           nickname
           a [unique]
-          \`lower(email)\`
+          \`lower(email)\` [unique]
+          (a, \`b + 1\`)
+          (\`a * 2\`) [pk]
         }
       }
     `)
@@ -54,7 +56,11 @@ describe('parseDbml', () => {
           expect.objectContaining({ name: 'a', unique: true }),
           expect.objectContaining({ name: 'b', unique: false, index: false }),
         ],
-        indexes: [{ type: 'unique', columns: ['a', 'b'] }],
+        indexes: [
+          { type: 'unique', columns: ['a', 'b'] },
+          { type: 'unique', columns: [], expressions: ['lower(email)'] },
+          { type: 'index', columns: ['a'], expressions: ['b + 1'] },
+        ],
       },
     ])
   })
@@ -313,7 +319,10 @@ describe('parseDbml', () => {
               defaultValue: "'it''s'",
             },
           ],
-          indexes: [{ type: 'index', columns: ['author id', 'slug'] }],
+          indexes: [
+            { type: 'index', columns: ['author id', 'slug'] },
+            { type: 'unique', expressions: ['lower(slug)'] },
+          ],
           checks: [
             { expression: "slug <> ''", name: 'slug_set' },
             { expression: 'id > 0\n  AND id < 1000000' },

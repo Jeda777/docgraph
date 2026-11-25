@@ -56,22 +56,27 @@ const buildTableData = (
   })
 
   const columnIdByName = new Map(values.map((value) => [value.name, value.id]))
-  const constraintKey = (type: string, columnIds: string[]) =>
-    `${type}:${[...columnIds].sort().join(',')}`
+  const constraintKey = ({
+    type,
+    columns,
+    expressions = [],
+  }: Omit<DatabaseDiagramNodeDataConstraint, 'id'>) =>
+    JSON.stringify([
+      type,
+      [...columns].sort(),
+      expressions.map((expression) => expression.trim()).filter(Boolean),
+    ])
   const existingConstraints = new Map(
-    existing?.constraints?.map((constraint) => [
-      constraintKey(constraint.type, constraint.columns),
-      constraint.id,
-    ]),
+    existing?.constraints?.map((constraint) => [constraintKey(constraint), constraint.id]),
   )
 
   const constraints = (table.indexes ?? []).map((index): DatabaseDiagramNodeDataConstraint => {
-    const columns = index.columns.flatMap((name) => columnIdByName.get(name) ?? [])
-    return {
-      id: existingConstraints.get(constraintKey(index.type, columns)) ?? randomId(),
+    const constraint = {
       type: index.type,
-      columns,
+      columns: index.columns.flatMap((name) => columnIdByName.get(name) ?? []),
+      ...(index.expressions?.length ? { expressions: index.expressions } : {}),
     }
+    return { id: existingConstraints.get(constraintKey(constraint)) ?? randomId(), ...constraint }
   })
 
   // Each existing check lends its id once, so repeated expressions still get unique ids.

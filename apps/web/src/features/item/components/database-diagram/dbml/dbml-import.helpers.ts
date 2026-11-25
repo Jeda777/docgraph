@@ -110,7 +110,10 @@ type ParsedIndexes = {
   composite: NonNullable<DatabaseSchemaTable['indexes']>
 }
 
-/** Expression indexes have no counterpart in the diagram and are skipped. */
+/**
+ * Indexes with expressions become constraints that list them after the columns, so the
+ * order of mixed parts is lost. Primary keys on expressions are skipped.
+ */
 const parseIndexes = (table: Table): ParsedIndexes => {
   const parsed: ParsedIndexes = {
     primaryKey: new Set(table.fields.filter((field) => field.pk).map((field) => field.name)),
@@ -120,12 +123,17 @@ const parseIndexes = (table: Table): ParsedIndexes => {
   }
 
   for (const index of table.indexes) {
-    if (index.columns.some((column) => column.type !== 'column')) continue
-    const columns = index.columns.map((column) => column.value)
+    const columns = index.columns.filter((part) => part.type === 'column').map(({ value }) => value)
+    const expressions = index.columns
+      .filter((part) => part.type !== 'column')
+      .map(({ value }) => value)
+    const type = index.unique ? 'unique' : 'index'
 
-    if (index.pk) for (const column of columns) parsed.primaryKey.add(column)
+    if (expressions.length) {
+      if (!index.pk) parsed.composite.push({ type, columns, expressions })
+    } else if (index.pk) for (const column of columns) parsed.primaryKey.add(column)
     else if (columns.length === 1) (index.unique ? parsed.unique : parsed.indexed).add(columns[0])
-    else parsed.composite.push({ type: index.unique ? 'unique' : 'index', columns })
+    else parsed.composite.push({ type, columns })
   }
   return parsed
 }
@@ -318,8 +326,8 @@ const formatErrors = (source: string, errors: readonly Readonly<CompileError>[])
 
 /**
  * Reads DBML into a layout-free schema. What the diagram can't hold is dropped: enum
- * definitions (columns keep the enum name as their type), expression indexes, table
- * groups and sticky notes. Column checks become checks of their table. DBML has no
+ * definitions (columns keep the enum name as their type), primary keys on expressions,
+ * table groups and sticky notes. Column checks become checks of their table. DBML has no
  * foreign key flag or relation nullability, so both are derived: a column is a foreign
  * key when it is the referencing side of a ref, and a relation is nullable when that
  * column is.

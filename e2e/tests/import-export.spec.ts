@@ -78,6 +78,10 @@ test('a database diagram imports DBML and exports it back', async ({ page }, tes
   email varchar(255) [unique, not null]
   created_at timestamp [not null, default: \`now()\`]
 
+  indexes {
+    \`lower(email)\` [unique]
+  }
+
   checks {
     \`id > 0\` [name: 'positive_id']
   }
@@ -98,6 +102,7 @@ Table posts {
   await expect(canvasTable(page, 'users').getByText('= now()')).toBeVisible()
   await expect(canvasTable(page, 'users').getByText('AI', { exact: true })).toBeVisible()
   await expect(canvasTable(page, 'users').getByText('positive_id (id > 0)')).toBeVisible()
+  await expect(canvasTable(page, 'users').getByText('(lower(email))')).toBeVisible()
 
   // Invalid DBML is rejected with its line and leaves the diagram as it was
   const invalidPath = testInfo.outputPath('invalid.dbml')
@@ -114,6 +119,7 @@ Table posts {
   expect(content).toContain('id bigint [pk, increment]')
   expect(content).toContain('email varchar(255) [unique, not null]')
   expect(content).toContain('created_at timestamp [not null, default: `now()`]')
+  expect(content).toContain('`lower(email)` [unique]')
   expect(content).toContain("`id > 0` [name: 'positive_id']")
   expect(content).toContain('author_id bigint [not null]')
   expect(content).toContain('Ref: users.id < posts.author_id')

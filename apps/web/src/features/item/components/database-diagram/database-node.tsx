@@ -39,18 +39,20 @@ export const DatabaseNode = memo(
               {editors.description && <EditCaret color={editors.description} />}
             </p>
           )}
-          {constraints
-            ?.filter((c) => c.columns.length)
-            .map((c) => (
+          {constraints?.map((c) => {
+            const parts = [
+              ...values.filter((v) => c.columns.includes(v.id)).map((v) => v.name),
+              ...(c.expressions ?? []).filter((expression) => expression.trim()),
+            ]
+            const editor = editors[`constraint:${c.id}`]
+            if (!parts.length && !editor) return null
+            return (
               <p key={c.id} className='text-xs text-muted-foreground'>
-                <span className='font-semibold uppercase'>{c.type}</span> (
-                {values
-                  .filter((v) => c.columns.includes(v.id))
-                  .map((v) => v.name)
-                  .join(', ')}
-                )
+                <span className='font-semibold uppercase'>{c.type}</span> ({parts.join(', ')})
+                {editor && <EditCaret color={editor} />}
               </p>
-            ))}
+            )
+          })}
           {checks
             ?.filter((check) => check.expression.trim() || editors[`check:${check.id}`])
             .map((check) => (
