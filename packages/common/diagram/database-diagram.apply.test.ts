@@ -174,6 +174,121 @@ describe('applyDatabaseSchema', () => {
     ).toThrow('An index needs at least one column or expression')
   })
 
+  describe('enums', () => {
+    const STATUS = {
+      name: 'status',
+      values: [{ name: 'draft', note: 'Not published yet' }, { name: 'published' }],
+    }
+
+    it('reads back the given enums and keeps their ids by name', () => {
+      const schema = schemaOf({ tables: [], enums: [STATUS] })
+
+      const first = applyDatabaseSchema(EMPTY, schema, 'replace')
+      const second = applyDatabaseSchema(
+        first,
+        schemaOf({ tables: [], enums: [{ ...STATUS, values: [...STATUS.values, { name: 'x' }] }] }),
+        'replace',
+      )
+
+      expect(toDatabaseSchema(first).enums).toEqual([STATUS])
+      expect(second.enums?.[0].id).toBe(first.enums?.[0].id)
+      expect(second.enums?.[0].values.slice(0, 2).map((value) => value.id)).toEqual(
+        first.enums?.[0].values.map((value) => value.id),
+      )
+    })
+
+    it('merge keeps enums that are not mentioned, replace removes them', () => {
+      const first = applyDatabaseSchema(EMPTY, schemaOf({ tables: [], enums: [STATUS] }), 'replace')
+      const role = { name: 'role', values: [{ name: 'admin' }] }
+
+      const merged = applyDatabaseSchema(first, schemaOf({ tables: [], enums: [role] }), 'merge')
+      const replaced = applyDatabaseSchema(
+        first,
+        schemaOf({ tables: [], enums: [role] }),
+        'replace',
+      )
+
+      expect(toDatabaseSchema(merged).enums?.map((item) => item.name)).toEqual(['status', 'role'])
+      expect(toDatabaseSchema(replaced).enums?.map((item) => item.name)).toEqual(['role'])
+    })
+
+    it('leaves out blank enums and values', () => {
+      const schema = toDatabaseSchema({
+        nodes: [],
+        edges: [],
+        enums: [
+          { id: 'a', name: ' ', values: [{ id: 'a1', name: 'x' }] },
+          { id: 'b', name: 'empty', values: [{ id: 'b1', name: ' ' }] },
+          {
+            id: 'c',
+            name: 'kind',
+            values: [
+              { id: 'c1', name: '' },
+              { id: 'c2', name: 'big' },
+            ],
+          },
+        ],
+      })
+
+      expect(schema.enums).toEqual([{ name: 'kind', values: [{ name: 'big' }] }])
+    })
+
+    it('reports repeated enum and value names once, so the result can be applied back', () => {
+      const schema = toDatabaseSchema({
+        nodes: [],
+        edges: [],
+        enums: [
+          {
+            id: 'a',
+            name: 'status',
+            values: [
+              { id: 'a1', name: 'on' },
+              { id: 'a2', name: ' on ' },
+            ],
+          },
+          { id: 'b', name: ' status', values: [{ id: 'b1', name: 'off' }] },
+        ],
+      })
+
+      expect(schema.enums).toEqual([{ name: 'status', values: [{ name: 'on' }] }])
+      expect(() => applyDatabaseSchema(EMPTY, schema, 'replace')).not.toThrow()
+    })
+
+    it('merge matches enums by their trimmed name and replaces repeated ones', () => {
+      const current = {
+        ...EMPTY,
+        enums: [
+          { id: 'a', name: ' status ', values: [{ id: 'a1', name: 'draft' }] },
+          { id: 'b', name: 'status', values: [{ id: 'b1', name: 'old' }] },
+          { id: 'c', name: 'role', values: [{ id: 'c1', name: 'admin' }] },
+        ],
+      }
+
+      const merged = applyDatabaseSchema(
+        current,
+        schemaOf({ tables: [], enums: [STATUS] }),
+        'merge',
+      )
+
+      expect(merged.enums?.map((item) => [item.id, item.name])).toEqual([
+        ['a', 'status'],
+        ['c', 'role'],
+      ])
+      expect(merged.enums?.[0].values[0].id).toBe('a1')
+    })
+
+    it('rejects duplicate enums and values', () => {
+      const schema = schemaOf({
+        tables: [],
+        enums: [STATUS, { name: 'status', values: [{ name: 'a' }, { name: 'a' }] }],
+      })
+
+      expect(() => applyDatabaseSchema(EMPTY, schema, 'replace')).toThrow(
+        'Duplicate enums: status\nDuplicate values in enum status: a',
+      )
+    })
+  })
+
   it('keeps ids, positions and colors of tables matched by name', () => {
     const first = applyDatabaseSchema(EMPTY, BLOG, 'replace')
     const moved = {

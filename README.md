@@ -104,8 +104,8 @@ A key can be narrowed when it is created: **read-only** (only the reading tools 
 | Tool | Purpose |
 | --- | --- |
 | `list_projects`, `list_items` | Find the item to work with |
-| `get_database_schema` | Tables, columns, indexes, checks and relations of a database diagram (no layout) — diagram → code |
-| `update_database_schema` | Write tables/relations into a diagram (`merge` or `replace`); tables match by name, so positions and colors are kept — code → diagram |
+| `get_database_schema` | Tables, columns, indexes, checks, enums and relations of a database diagram (no layout) — diagram → code |
+| `update_database_schema` | Write tables, enums and relations into a diagram (`merge` or `replace`); tables and enums match by name, so positions and colors are kept — code → diagram |
 | `create_database_diagram` | New database diagram, optionally with a schema |
 | `get_diagram` | Nodes, edges and areas of a flowchart or business process, with short type names (`process`, `decision`, `activity`, `sequenceFlow`, …) |
 | `update_diagram` | Write nodes/edges into a flowchart or business process (`merge` or `replace`, plus `removeNodeIds` / `removeEdgeIds`); nodes match by id, nodes without a position are laid out automatically, and the result is validated against the diagram rules |

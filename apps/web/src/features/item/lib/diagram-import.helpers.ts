@@ -1,4 +1,4 @@
-import { DIAGRAM_MAPS, type ItemType } from '@docgraph/common/schemas'
+import { DATABASE_DIAGRAM_ENUMS_MAP, DIAGRAM_MAPS, type ItemType } from '@docgraph/common/schemas'
 import { applyUpdate, Doc } from 'yjs'
 import { z } from 'zod'
 
@@ -21,6 +21,9 @@ export const parseDiagramFile = async <T extends z.ZodTypeAny>(
       nodes: Array.from(doc.getMap(DIAGRAM_MAPS.nodes).values()),
       edges: Array.from(doc.getMap(DIAGRAM_MAPS.edges).values()),
       areas: Array.from(doc.getMap(DIAGRAM_MAPS.areas).values()),
+      ...(documentType === 'DATABASE_DIAGRAM'
+        ? { enums: Array.from(doc.getMap(DATABASE_DIAGRAM_ENUMS_MAP).values()) }
+        : {}),
     }
   } else if (file.name.endsWith('.json')) {
     try {

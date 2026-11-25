@@ -6,7 +6,13 @@ import {
   type DiagramNode,
   toDatabaseSchema,
 } from '@docgraph/common/diagram'
-import { type DatabaseSchema, DIAGRAM_MAPS, type SchemaApplyMode } from '@docgraph/common/schemas'
+import {
+  DATABASE_DIAGRAM_ENUMS_MAP,
+  type DatabaseDiagramEnum,
+  type DatabaseSchema,
+  DIAGRAM_MAPS,
+  type SchemaApplyMode,
+} from '@docgraph/common/schemas'
 import type { Doc } from 'yjs'
 import { BadRequestException } from '../../errors'
 import type { Actor } from '../auth/actor'
@@ -33,6 +39,7 @@ const applyDatabaseSchema = (...args: Parameters<typeof applySchema>) => {
 const readDiagram = (doc: Doc): DiagramDocument => ({
   nodes: readCollection<DiagramNode>(doc, DIAGRAM_MAPS.nodes),
   edges: readCollection<DiagramEdge>(doc, DIAGRAM_MAPS.edges),
+  enums: readCollection<DatabaseDiagramEnum>(doc, DATABASE_DIAGRAM_ENUMS_MAP),
 })
 
 /** Current schema of a database diagram. */
@@ -60,6 +67,7 @@ export const updateDatabaseSchema = async (
       const result = applyDatabaseSchema(readDiagram(doc), schema, mode)
       writeCollection(doc, DIAGRAM_MAPS.nodes, result.nodes)
       writeCollection(doc, DIAGRAM_MAPS.edges, result.edges)
+      writeCollection(doc, DATABASE_DIAGRAM_ENUMS_MAP, result.enums ?? [])
       return result.summary
     },
   )
@@ -73,10 +81,11 @@ export const createDatabaseDiagram = async (
 ) => {
   // Validate before creating the item, so a bad schema leaves no empty diagram
   // behind (an agent retrying would otherwise pile up duplicates).
-  if (schema?.tables.length) applyDatabaseSchema({ nodes: [], edges: [] }, schema, 'replace')
+  const hasContent = !!(schema?.tables.length || schema?.enums?.length)
+  if (schema && hasContent) applyDatabaseSchema({ nodes: [], edges: [] }, schema, 'replace')
 
   const item = await createItem({ projectId, name, type: 'DATABASE_DIAGRAM' }, actor)
-  if (!schema?.tables.length) return { item, summary: undefined }
+  if (!schema || !hasContent) return { item, summary: undefined }
 
   const { summary } = await updateDatabaseSchema(item.id, schema, 'replace', actor)
   return { item, summary }

@@ -85,6 +85,14 @@ export const getDataTypeColor = (value: string): string | undefined => {
   return Object.hasOwn(dataTypes, base) ? dataTypes[base] : undefined
 }
 
+/** Column type suggestions: the diagram's enums first, then the built-in types. */
+export const columnTypeOptions = (enumTypes: readonly string[]) => [
+  ...new Set([...enumTypes, ...Object.keys(dataTypes)]),
+]
+
+/** An enum value as the SQL string literal a column default holds. */
+export const enumValueDefault = (value: string) => `'${value.replaceAll("'", "''")}'`
+
 /** Numeric types accept UNSIGNED (boolean excluded). */
 export const isNumericType = (value: string) => {
   const base = baseType(value)

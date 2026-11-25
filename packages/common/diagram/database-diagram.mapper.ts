@@ -17,7 +17,7 @@ import { asTableNode, type DiagramDocument } from './database-diagram.model'
  */
 
 /** Diagram → schema. Nodes or edges the schema cannot describe are skipped. */
-export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSchema => {
+export const toDatabaseSchema = ({ nodes, edges, enums = [] }: DiagramDocument): DatabaseSchema => {
   const tables = nodes.flatMap((node) => asTableNode(node) ?? [])
   const tableById = new Map(tables.map((node) => [node.id, node.data]))
 
@@ -41,7 +41,24 @@ export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSch
     ]
   })
 
+  // Repeated names are left to their first occurrence, so the result can be written back.
+  const enumNames = new Set<string>()
+  const namedEnums = enums.flatMap(({ name, values }) => {
+    const valueNames = new Set<string>()
+    const enumValues = values.flatMap((value) => {
+      const valueName = value.name.trim()
+      if (!valueName || valueNames.has(valueName)) return []
+      valueNames.add(valueName)
+      return [{ name: valueName, ...(value.note ? { note: value.note } : {}) }]
+    })
+    const enumName = name.trim()
+    if (!enumName || !enumValues.length || enumNames.has(enumName)) return []
+    enumNames.add(enumName)
+    return [{ name: enumName, values: enumValues }]
+  })
+
   return {
+    ...(namedEnums.length ? { enums: namedEnums } : {}),
     tables: tables.map(({ data }) => {
       const columnNameById = new Map(data.values.map((value) => [value.id, value.name]))
       const indexes = (data.constraints ?? []).flatMap((constraint) => {

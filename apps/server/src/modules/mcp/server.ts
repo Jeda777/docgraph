@@ -132,7 +132,7 @@ export const createMcpServer = (actor: Actor) => {
     {
       title: 'Read database diagram',
       description:
-        'Tables, columns, indexes, checks and relations of a DATABASE_DIAGRAM item, without layout.',
+        'Tables, columns, indexes, checks, enums and relations of a DATABASE_DIAGRAM item, without layout.',
       inputSchema: { itemId: idSchema },
       annotations: { readOnlyHint: true },
     },
@@ -147,7 +147,7 @@ export const createMcpServer = (actor: Actor) => {
     {
       title: 'Update database diagram',
       description:
-        'Writes tables and relations into a DATABASE_DIAGRAM item. Every given table is a complete definition (its columns replace the current ones). mode "merge" keeps tables and relations that are not mentioned; mode "replace" removes them.',
+        'Writes tables, enums and relations into a DATABASE_DIAGRAM item. Every given table or enum is a complete definition (its columns or values replace the current ones). mode "merge" keeps tables, enums and relations that are not mentioned; mode "replace" removes them.',
       inputSchema: {
         itemId: idSchema,
         mode: z.enum(SCHEMA_APPLY_MODES).default('merge'),

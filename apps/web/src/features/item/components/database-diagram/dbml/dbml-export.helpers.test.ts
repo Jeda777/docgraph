@@ -132,6 +132,28 @@ describe('toDbml', () => {
   }`)
   })
 
+  it('writes enums before the tables, quoting values that are not identifiers', () => {
+    const dbml = toDbml(
+      schemaOf({
+        enums: [
+          {
+            name: 'auth.status',
+            values: [{ name: 'active', note: 'Can sign in' }, { name: 'on hold' }],
+          },
+        ],
+        tables: [{ name: 'users', columns: [{ name: 'status', type: 'auth.status' }] }],
+      }),
+    )
+
+    expect(dbml).toContain(`Enum auth.status {
+  active [note: 'Can sign in']
+  "on hold"
+}
+
+Table users {
+  status auth.status [not null]`)
+  })
+
   it('writes each relation with its operator and referential actions', () => {
     const table = (name: string) => ({ name, columns: [{ name: 'id', type: 'int' }] })
     const dbml = toDbml(

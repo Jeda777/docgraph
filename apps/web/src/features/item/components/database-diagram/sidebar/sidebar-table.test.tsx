@@ -1,4 +1,4 @@
-import { DATABASE_DIAGRAM_NODE_TYPE } from '@docgraph/common/schemas'
+import { DATABASE_DIAGRAM_NODE_TYPE, type DatabaseDiagramEnum } from '@docgraph/common/schemas'
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { useState } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -44,24 +44,31 @@ const OTHER: DatabaseNode = {
 let nodes: DatabaseNode[] = []
 
 /** Owns the node list like the sidebar does and renders the card of the first node. */
-const Harness = ({ initial, readOnly }: { initial: DatabaseNode[]; readOnly?: boolean }) => {
+type HarnessProps = {
+  initial: DatabaseNode[]
+  enums?: DatabaseDiagramEnum[]
+  readOnly?: boolean
+}
+
+const Harness = ({ initial, enums, readOnly }: HarnessProps) => {
   const [state, setState] = useState(initial)
   nodes = state
   const [first] = state
 
   if (!first) return null
   return (
-    <SidebarTable nodeId={first.id} data={first.data} setNodes={setState} readOnly={readOnly} />
+    <SidebarTable
+      nodeId={first.id}
+      data={first.data}
+      setNodes={setState}
+      enums={enums}
+      readOnly={readOnly}
+    />
   )
 }
 
-const renderTable = ({
-  initial = [USERS, OTHER],
-  readOnly,
-}: {
-  initial?: DatabaseNode[]
-  readOnly?: boolean
-} = {}) => render(<Harness initial={initial} readOnly={readOnly} />)
+const renderTable = ({ initial = [USERS, OTHER], ...props }: Partial<HarnessProps> = {}) =>
+  render(<Harness initial={initial} {...props} />)
 
 const users = () => nodes.find((node) => node.id === 'users')
 
@@ -77,6 +84,37 @@ beforeEach(() => {
 afterEach(cleanup)
 
 describe('SidebarTable', () => {
+  it('picks the default of an enum column from its values', () => {
+    const status: DatabaseDiagramEnum = {
+      id: 'status',
+      name: 'order_status',
+      values: [
+        { id: 'pending', name: 'pending' },
+        { id: 'shipped', name: 'shipped' },
+      ],
+    }
+    const orders: DatabaseNode = {
+      ...USERS,
+      data: {
+        ...USERS.data,
+        values: [
+          { ...column('users-id', 'state'), value: 'order_status', defaultValue: "'shipped'" },
+        ],
+      },
+    }
+    renderTable({ initial: [orders], enums: [status] })
+
+    const select = screen.getByRole('combobox', { name: 'Column default' })
+    expect(select).toHaveTextContent('shipped')
+
+    fireEvent.click(select)
+    const option = screen.getByRole('option', { name: 'pending' })
+    fireEvent.pointerDown(option, { pointerType: 'mouse' })
+    fireEvent.click(option)
+
+    expect(users()?.data.values[0].defaultValue).toBe("'pending'")
+  })
+
   it('renames the table without touching other tables', () => {
     renderTable()
 

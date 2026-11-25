@@ -2,9 +2,12 @@ import {
   AREA_NODE_TYPE,
   DATABASE_DIAGRAM_DEFAULT_EDGE_DATA,
   DATABASE_DIAGRAM_EDGE_TYPE,
+  DATABASE_DIAGRAM_ENUMS_MAP,
   DATABASE_DIAGRAM_NODE_TYPE,
   type DatabaseDiagramEdgeData,
+  type DatabaseDiagramEnum,
 } from '@docgraph/common/schemas'
+import { useYjsCollection } from '../../hooks/use-yjs-collection'
 import type { CrdtEditorProps } from '../../lib/types'
 import { AreaNode } from '../base/area-node'
 import { DiagramCanvas } from '../base/diagram-canvas'
@@ -24,18 +27,32 @@ const edgeTypes = {
 
 const createEdgeData = (): DatabaseDiagramEdgeData => ({ ...DATABASE_DIAGRAM_DEFAULT_EDGE_DATA })
 
-export const DatabaseDiagram = ({ connected, itemName }: CrdtEditorProps) => (
-  <DiagramCanvas<DatabaseNodeType, DatabaseEdgeType>
-    connected={connected}
-    itemName={itemName}
-    nodeTypes={nodeTypes}
-    edgeTypes={edgeTypes}
-    edgeType={DATABASE_DIAGRAM_EDGE_TYPE}
-    createEdgeData={createEdgeData}
-    onNodeDoubleClick={(node) =>
-      focusDiagramItem({ kind: node.type === AREA_NODE_TYPE ? 'area' : 'table', id: node.id })
-    }
-    onEdgeDoubleClick={(edge) => focusDiagramItem({ kind: 'relation', id: edge.id })}
-    renderSidebar={(collections, name) => <DatabaseSidebar {...collections} itemName={name} />}
-  />
-)
+export const DatabaseDiagram = ({ connected, itemName }: CrdtEditorProps) => {
+  // Enums live only in the sidebar, in their own map that shares the canvas undo history.
+  const enumCollection = useYjsCollection<DatabaseDiagramEnum>(DATABASE_DIAGRAM_ENUMS_MAP)
+
+  return (
+    <DiagramCanvas<DatabaseNodeType, DatabaseEdgeType>
+      connected={connected}
+      itemName={itemName}
+      nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
+      edgeType={DATABASE_DIAGRAM_EDGE_TYPE}
+      createEdgeData={createEdgeData}
+      onNodeDoubleClick={(node) =>
+        focusDiagramItem({ kind: node.type === AREA_NODE_TYPE ? 'area' : 'table', id: node.id })
+      }
+      onEdgeDoubleClick={(edge) => focusDiagramItem({ kind: 'relation', id: edge.id })}
+      extraCollections={[{ ...enumCollection, name: DATABASE_DIAGRAM_ENUMS_MAP }]}
+      renderSidebar={(collections, name) => (
+        <DatabaseSidebar
+          {...collections}
+          enums={enumCollection.items}
+          setEnums={enumCollection.setItems}
+          replaceEnums={enumCollection.replaceItems}
+          itemName={name}
+        />
+      )}
+    />
+  )
+}

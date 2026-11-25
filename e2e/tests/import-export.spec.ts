@@ -73,7 +73,12 @@ test('a database diagram imports DBML and exports it back', async ({ page }, tes
   const dbmlPath = testInfo.outputPath('blog.dbml')
   await writeFile(
     dbmlPath,
-    `Table users {
+    `Enum post_status {
+  draft
+  published [note: 'Visible to readers']
+}
+
+Table users {
   id bigint [pk, increment]
   email varchar(255) [unique, not null]
   created_at timestamp [not null, default: \`now()\`]
@@ -90,6 +95,7 @@ test('a database diagram imports DBML and exports it back', async ({ page }, tes
 Table posts {
   id bigint [pk]
   author_id bigint [not null, ref: > users.id]
+  status post_status [not null]
 }
 `,
   )
@@ -103,6 +109,9 @@ Table posts {
   await expect(canvasTable(page, 'users').getByText('AI', { exact: true })).toBeVisible()
   await expect(canvasTable(page, 'users').getByText('positive_id (id > 0)')).toBeVisible()
   await expect(canvasTable(page, 'users').getByText('(lower(email))')).toBeVisible()
+  await page.getByRole('tab', { name: 'Enums' }).click()
+  await expect(page.getByRole('textbox', { name: 'Enum name' })).toHaveValue('post_status')
+  await expect(page.getByRole('textbox', { name: 'Enum value' })).toHaveCount(2)
 
   // Invalid DBML is rejected with its line and leaves the diagram as it was
   const invalidPath = testInfo.outputPath('invalid.dbml')
@@ -121,6 +130,13 @@ Table posts {
   expect(content).toContain('created_at timestamp [not null, default: `now()`]')
   expect(content).toContain('`lower(email)` [unique]')
   expect(content).toContain("`id > 0` [name: 'positive_id']")
+  expect(content).toContain(
+    `Enum post_status {
+  draft
+  published [note: 'Visible to readers']
+}`,
+  )
+  expect(content).toContain('status post_status [not null]')
   expect(content).toContain('author_id bigint [not null]')
   expect(content).toContain('Ref: users.id < posts.author_id')
 })

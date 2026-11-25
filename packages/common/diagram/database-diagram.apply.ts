@@ -4,11 +4,13 @@ import {
   DATABASE_DIAGRAM_EDGE_TYPE,
   DATABASE_DIAGRAM_NODE_TYPE,
   type DatabaseDiagramEdgeData,
+  type DatabaseDiagramEnum,
   type DatabaseDiagramNodeData,
   type DatabaseDiagramNodeDataCheck,
   type DatabaseDiagramNodeDataConstraint,
   type DatabaseDiagramNodeDataValue,
   type DatabaseSchema,
+  type DatabaseSchemaEnum,
   type DatabaseSchemaTable,
   nodeColorAt,
   type SchemaApplyMode,
@@ -25,7 +27,7 @@ import {
   type SchemaApplySummary,
   type TableNode,
 } from './database-diagram.model'
-import { validateTables } from './database-diagram.validate'
+import { validateEnums, validateTables } from './database-diagram.validate'
 import { findDuplicates } from './find-duplicates'
 import { randomId } from './random-id'
 
@@ -109,14 +111,51 @@ const buildTableData = (
   }
 }
 
+/** Enums and their values are matched by name, so their ids survive the round trip. */
+const applyEnums = (
+  current: DatabaseDiagramEnum[],
+  input: DatabaseSchemaEnum[],
+  mode: SchemaApplyMode,
+): DatabaseDiagramEnum[] => {
+  // Names are compared trimmed, as `toDatabaseSchema` reports them; the first of repeated
+  // names wins.
+  const existingByName = new Map<string, DatabaseDiagramEnum>()
+  for (const item of current) {
+    if (!existingByName.has(item.name.trim())) existingByName.set(item.name.trim(), item)
+  }
+  const defined = input.map((item): DatabaseDiagramEnum => {
+    const previous = existingByName.get(item.name)
+    const valueIds = new Map(previous?.values.map((value) => [value.name.trim(), value.id]))
+    return {
+      id: previous?.id ?? randomId(),
+      name: item.name,
+      values: item.values.map((value) => ({
+        id: valueIds.get(value.name) ?? randomId(),
+        name: value.name,
+        ...(value.note ? { note: value.note } : {}),
+      })),
+    }
+  })
+  if (mode === 'replace') return defined
+
+  const definedByName = new Map(defined.map((item) => [item.name, item]))
+  const kept = current.flatMap((item) => {
+    const redefined = definedByName.get(item.name.trim())
+    if (!redefined) return [item]
+    // A redefined enum takes the place of its first occurrence and replaces the others.
+    return existingByName.get(item.name.trim()) === item ? [redefined] : []
+  })
+  return [...kept, ...defined.filter((item) => !existingByName.has(item.name))]
+}
+
 /**
  * Schema → diagram. Tables are matched to existing nodes by name and columns
  * by name, so ids, positions, sizes and colors survive the round trip; new
  * tables are laid out below the current content.
  *
- * - `replace`: the result contains exactly the given tables and relations.
- * - `merge`: given tables are created or fully redefined, given relations are
- *   added or updated; everything else in the diagram is left as is.
+ * - `replace`: the result contains exactly the given tables, enums and relations.
+ * - `merge`: given tables and enums are created or fully redefined, given relations
+ *   are added or updated; everything else in the diagram is left as is.
  */
 export const applyDatabaseSchema = (
   current: DiagramDocument,
@@ -124,6 +163,7 @@ export const applyDatabaseSchema = (
   mode: SchemaApplyMode,
 ): DiagramDocument & { summary: SchemaApplySummary } => {
   validateTables(schema.tables)
+  validateEnums(schema.enums ?? [])
 
   const existingTables = current.nodes.flatMap((node) => asTableNode(node) ?? [])
   const existingByName = new Map(existingTables.map((node) => [node.data.name, node]))
@@ -301,6 +341,7 @@ export const applyDatabaseSchema = (
   return {
     nodes: finalNodes,
     edges,
+    enums: applyEnums(current.enums ?? [], schema.enums ?? [], mode),
     summary: {
       tablesCreated: newTables.map((table) => table.name),
       tablesUpdated: schema.tables

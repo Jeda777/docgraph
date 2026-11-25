@@ -10,6 +10,7 @@ import {
   NodeChangeset,
   reconnectEdge,
 } from '@xyflow/react'
+import { useMemo } from 'react'
 import type { AreaNode } from '../components/base/area-node'
 import { useDocumentReadOnly } from './use-document-read-only'
 import { useNodeDragPresence } from './use-node-drag-presence'
@@ -17,6 +18,9 @@ import { COLLECTION_WRITE_ORIGIN, useYjsCollection } from './use-yjs-collection'
 import { useYjsUndo } from './use-yjs-undo'
 
 const DIAGRAM_MAP_NAMES = Object.values(DIAGRAM_MAPS)
+
+/** A diagram-specific `useYjsCollection`, e.g. the enums of a database diagram. */
+export type ExtraDiagramCollection = { name: string; flush: () => void; held: boolean }
 
 /** Nodes whose parent is not among `elementIds`, together with everything nested inside them. */
 const findOrphanNodeIds = (nodes: readonly Node[], elementIds: ReadonlySet<string>) => {
@@ -43,6 +47,8 @@ export type DiagramCollectionsOptions<NodeType extends Node, EdgeType extends Ed
   ) => NodeType[]
   /** Applied to every local node edit before it is written. Must be a stable reference. */
   normalizeNodes?: (nodes: NodeType[]) => NodeType[]
+  /** Collections of other maps that share the undo history with the canvas. */
+  extraCollections?: readonly ExtraDiagramCollection[]
 }
 
 /**
@@ -57,6 +63,7 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
   createEdgeData,
   cleanDeletedReferences,
   normalizeNodes,
+  extraCollections = [],
 }: DiagramCollectionsOptions<NodeType, EdgeType>) => {
   const readOnly = useDocumentReadOnly()
   const provider = useHocuspocusProvider()
@@ -127,8 +134,14 @@ export const useDiagramCollections = <NodeType extends Node, EdgeType extends Ed
     })
   }
 
-  const collections = [nodeCollection, edgeCollection, areaCollection]
-  const history = useYjsUndo(DIAGRAM_MAP_NAMES, {
+  const collections = [nodeCollection, edgeCollection, areaCollection, ...extraCollections]
+  const extraNames = extraCollections.map((collection) => collection.name).join(',')
+  // `useYjsUndo` recreates the history when the array identity changes, so it follows the names.
+  const undoNames = useMemo(
+    () => [...DIAGRAM_MAP_NAMES, ...(extraNames ? extraNames.split(',') : [])],
+    [extraNames],
+  )
+  const history = useYjsUndo(undoNames, {
     flushPending: () => {
       for (const collection of collections) collection.flush()
     },
