@@ -40,6 +40,7 @@ const readDiagram = (doc: Doc): DiagramDocument => ({
   nodes: readCollection<DiagramNode>(doc, DIAGRAM_MAPS.nodes),
   edges: readCollection<DiagramEdge>(doc, DIAGRAM_MAPS.edges),
   enums: readCollection<DatabaseDiagramEnum>(doc, DATABASE_DIAGRAM_ENUMS_MAP),
+  areas: readCollection<DiagramNode>(doc, DIAGRAM_MAPS.areas),
 })
 
 /** Current schema of a database diagram. */
@@ -68,6 +69,7 @@ export const updateDatabaseSchema = async (
       writeCollection(doc, DIAGRAM_MAPS.nodes, result.nodes)
       writeCollection(doc, DIAGRAM_MAPS.edges, result.edges)
       writeCollection(doc, DATABASE_DIAGRAM_ENUMS_MAP, result.enums ?? [])
+      writeCollection(doc, DIAGRAM_MAPS.areas, result.areas ?? [])
       return result.summary
     },
   )
@@ -81,7 +83,7 @@ export const createDatabaseDiagram = async (
 ) => {
   // Validate before creating the item, so a bad schema leaves no empty diagram
   // behind (an agent retrying would otherwise pile up duplicates).
-  const hasContent = !!(schema?.tables.length || schema?.enums?.length)
+  const hasContent = !!(schema?.tables.length || schema?.enums?.length || schema?.groups?.length)
   if (schema && hasContent) applyDatabaseSchema({ nodes: [], edges: [] }, schema, 'replace')
 
   const item = await createItem({ projectId, name, type: 'DATABASE_DIAGRAM' }, actor)

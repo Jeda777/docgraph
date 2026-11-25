@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import { type DatabaseSchemaInput, databaseSchemaSchema } from '../schemas'
 import { applyDatabaseSchema } from './database-diagram.apply'
+import { tableGroupsOf } from './database-diagram.groups'
 import { toDatabaseSchema } from './database-diagram.mapper'
-import type { DiagramDocument } from './database-diagram.model'
+import { asAreaNode, type DiagramDocument } from './database-diagram.model'
 
 const schemaOf = (input: DatabaseSchemaInput) => databaseSchemaSchema.parse(input)
 
@@ -667,5 +668,198 @@ describe('applyDatabaseSchema merge / replace edge cases', () => {
     const posts = toDatabaseSchema(applyDatabaseSchema(EMPTY, schema, 'replace')).tables[1]
 
     expect(posts.columns.find((column) => column.name === 'author_id')?.foreignKey).toBe(false)
+  })
+})
+
+describe('applyDatabaseSchema groups', () => {
+  const GROUPED = schemaOf({
+    ...BLOG,
+    tables: [...BLOG.tables, { name: 'tags', columns: [{ name: 'id', type: 'bigint' }] }],
+    groups: [
+      { name: 'auth', tables: ['users'], color: '#ff0000' },
+      { name: 'content', tables: ['posts', 'tags'] },
+    ],
+  })
+
+  const membersOf = (diagram: DiagramDocument) =>
+    tableGroupsOf(diagram.nodes, diagram.areas ?? []).map(({ area, tables }) => [
+      area.data.name,
+      tables.map((table) => table.data.name),
+    ])
+
+  it('draws an area around the tables of each group', () => {
+    const diagram = applyDatabaseSchema(EMPTY, GROUPED, 'replace')
+
+    expect(membersOf(diagram)).toEqual([
+      ['auth', ['users']],
+      ['content', ['posts', 'tags']],
+    ])
+    expect(diagram.areas?.map((area) => asAreaNode(area)?.data)).toEqual([
+      { name: 'auth', color: '#ff0000', alpha: 0.1, order: 0 },
+      { name: 'content', color: '#3b82f6', alpha: 0.1, order: 1 },
+    ])
+    expect(toDatabaseSchema(diagram).groups).toEqual([
+      { name: 'auth', tables: ['users'], color: '#ff0000' },
+      { name: 'content', tables: ['posts', 'tags'], color: '#3b82f6' },
+    ])
+  })
+
+  it('keeps an area with exactly its tables and fits one that gained or lost a table', () => {
+    const diagram = applyDatabaseSchema(EMPTY, GROUPED, 'replace')
+    const [auth, content] = diagram.areas ?? []
+
+    const same = applyDatabaseSchema(diagram, GROUPED, 'replace')
+    expect(same.areas).toEqual(diagram.areas)
+
+    const shrunk = applyDatabaseSchema(
+      diagram,
+      schemaOf({
+        ...GROUPED,
+        groups: [
+          { name: 'auth', tables: ['users'] },
+          { name: 'content', tables: ['tags'] },
+        ],
+      }),
+      'replace',
+    )
+    expect(shrunk.areas?.[0]).toEqual(auth)
+    expect(shrunk.areas?.[1].id).toBe(content.id)
+    expect(membersOf(shrunk)).toEqual([
+      ['auth', ['users']],
+      ['content', ['tags']],
+    ])
+    expect(asAreaNode(shrunk.areas?.[0] ?? auth)?.data.color).toBe('#ff0000')
+  })
+
+  it('replace removes areas that held tables and keeps empty ones', () => {
+    const empty = {
+      id: 'empty',
+      type: 'areaNode',
+      position: { x: 5000, y: 5000 },
+      style: { width: 300, height: 200 },
+      data: { name: 'notes', color: '#00ff00', alpha: 0.2, order: 7 },
+    }
+    const diagram = applyDatabaseSchema(EMPTY, GROUPED, 'replace')
+    const result = applyDatabaseSchema(
+      { ...diagram, areas: [...(diagram.areas ?? []), empty] },
+      schemaOf({ ...BLOG, groups: [] }),
+      'replace',
+    )
+
+    expect(result.areas).toEqual([empty])
+  })
+
+  it('leaves the areas as they are when no groups are given', () => {
+    const diagram = applyDatabaseSchema(EMPTY, GROUPED, 'replace')
+
+    expect(applyDatabaseSchema(diagram, BLOG, 'replace').areas).toEqual(diagram.areas)
+  })
+
+  it('places a table added to a group next to it, without taking in other tables', () => {
+    // users and orders sit one above the other; auth surrounds only users
+    const diagram = applyDatabaseSchema(
+      EMPTY,
+      schemaOf({
+        tables: [
+          { name: 'users', columns: [{ name: 'id', type: 'int' }] },
+          { name: 'orders', columns: [{ name: 'id', type: 'int' }] },
+        ],
+        groups: [{ name: 'auth', tables: ['users'] }],
+      }),
+      'replace',
+    )
+    const [users, orders] = diagram.nodes
+    const stacked = {
+      ...diagram,
+      nodes: [users, { ...orders, position: { x: users.position.x, y: users.position.y + 250 } }],
+    }
+    const result = applyDatabaseSchema(
+      stacked,
+      schemaOf({
+        tables: [{ name: 'sessions', columns: [{ name: 'id', type: 'int' }] }],
+        groups: [{ name: 'auth', tables: ['users', 'sessions'] }],
+      }),
+      'merge',
+    )
+
+    expect(membersOf(result)).toEqual([['auth', ['users', 'sessions']]])
+  })
+
+  it('does not place a table added to a group inside another area', () => {
+    const diagram = applyDatabaseSchema(
+      EMPTY,
+      schemaOf({
+        tables: [{ name: 'users', columns: [{ name: 'id', type: 'int' }] }],
+        groups: [{ name: 'auth', tables: ['users'] }],
+      }),
+      'replace',
+    )
+    const [auth] = diagram.areas ?? []
+    // Empty areas right below and to the right of auth, where a new table would go first
+    const notes = (id: string, x: number, y: number) => ({
+      id,
+      type: 'areaNode',
+      position: { x, y },
+      style: { width: 600, height: 400 },
+      data: { name: id, color: '#00ff00', alpha: 0.1, order: 1 },
+    })
+    const below = notes('below', auth.position.x, auth.position.y + 300)
+    const right = notes('right', auth.position.x + 400, auth.position.y)
+    const result = applyDatabaseSchema(
+      { ...diagram, areas: [auth, below, right] },
+      schemaOf({
+        tables: [{ name: 'sessions', columns: [{ name: 'id', type: 'int' }] }],
+        groups: [{ name: 'auth', tables: ['users', 'sessions'] }],
+      }),
+      'merge',
+    )
+
+    expect(membersOf(result)).toEqual([['auth', ['users', 'sessions']]])
+  })
+
+  it('merge without groups leaves the areas as they are', () => {
+    const diagram = applyDatabaseSchema(EMPTY, GROUPED, 'replace')
+    const result = applyDatabaseSchema(diagram, schemaOf({ tables: [] }), 'merge')
+
+    expect(result.areas).toEqual(diagram.areas)
+  })
+
+  it('lays out new tables of a group below the content, away from other groups', () => {
+    const diagram = applyDatabaseSchema(EMPTY, GROUPED, 'replace')
+    const result = applyDatabaseSchema(
+      diagram,
+      schemaOf({
+        tables: [{ name: 'orders', columns: [{ name: 'id', type: 'bigint' }] }],
+        groups: [{ name: 'shop', tables: ['orders'] }],
+      }),
+      'merge',
+    )
+
+    expect(membersOf(result)).toEqual([
+      ['auth', ['users']],
+      ['content', ['posts', 'tags']],
+      ['shop', ['orders']],
+    ])
+  })
+
+  it('rejects duplicate groups, unknown tables and tables in several groups', () => {
+    const apply = (groups: DatabaseSchemaInput['groups']) => () =>
+      applyDatabaseSchema(EMPTY, schemaOf({ ...BLOG, groups }), 'replace')
+
+    expect(
+      apply([
+        { name: 'a', tables: ['users'] },
+        { name: 'a', tables: ['posts'] },
+      ]),
+    ).toThrow('Duplicate groups: a')
+    expect(apply([{ name: 'a', tables: ['missing'] }])).toThrow(
+      'Groups reference unknown or ambiguous tables: missing',
+    )
+    expect(
+      apply([
+        { name: 'a', tables: ['users'] },
+        { name: 'b', tables: ['users'] },
+      ]),
+    ).toThrow('Tables in several groups: users')
   })
 })

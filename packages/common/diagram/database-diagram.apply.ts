@@ -1,4 +1,5 @@
 import {
+  AREA_NODE_TYPE,
   columnHandleId,
   columnIdFromHandleId,
   DATABASE_DIAGRAM_EDGE_TYPE,
@@ -11,12 +12,28 @@ import {
   type DatabaseDiagramNodeDataValue,
   type DatabaseSchema,
   type DatabaseSchemaEnum,
+  type DatabaseSchemaGroup,
   type DatabaseSchemaTable,
   nodeColorAt,
   type SchemaApplyMode,
 } from '../schemas'
-import { gridPositions, tableHeight } from './database-diagram.layout'
 import {
+  AREA_PADDING,
+  areaRect,
+  fitAreaRect,
+  rectsOverlap,
+  tableGroupsOf,
+  tableRect,
+} from './database-diagram.groups'
+import {
+  GRID_GAP_X,
+  GRID_GAP_Y,
+  gridFrom,
+  gridPositions,
+  tableHeight,
+} from './database-diagram.layout'
+import {
+  asAreaNode,
   asTableNode,
   DatabaseSchemaError,
   type DiagramDocument,
@@ -27,7 +44,12 @@ import {
   type SchemaApplySummary,
   type TableNode,
 } from './database-diagram.model'
-import { validateEnums, validateTables } from './database-diagram.validate'
+import { validateEnums, validateGroups, validateTables } from './database-diagram.validate'
+import {
+  AREA_NODE_DEFAULT_ALPHA,
+  AREA_NODE_DEFAULT_COLOR,
+  TABLE_ESTIMATED_WIDTH,
+} from './diagram-defaults'
 import { findDuplicates } from './find-duplicates'
 import { randomId } from './random-id'
 
@@ -149,12 +171,95 @@ const applyEnums = (
 }
 
 /**
+ * Groups are matched to areas by name. An area that contains exactly its group's tables is
+ * kept as it is, otherwise it is fitted around them; a new group gets a new area. Without
+ * `groups` the areas are left as they are. In `replace` mode areas that read as a group but
+ * match none are removed; empty areas stay.
+ */
+const applyGroups = (
+  current: DiagramDocument,
+  nodes: DiagramNode[],
+  tableByName: Map<string, TableNode>,
+  groups: DatabaseSchemaGroup[] | undefined,
+  mode: SchemaApplyMode,
+): DiagramNode[] => {
+  const areas = current.areas ?? []
+  if (!groups) return areas
+
+  // Like `toDatabaseSchema`, only the first area of a name reads as a group.
+  const readAsGroup = new Map<string, string>()
+  for (const { area } of tableGroupsOf(current.nodes, areas)) {
+    const name = area.data.name.trim()
+    if (!readAsGroup.has(name)) readAsGroup.set(name, area.id)
+  }
+  const removable = new Set(readAsGroup.values())
+  const tablesOfArea = new Map(
+    tableGroupsOf(nodes, areas).map(({ area, tables }) => [
+      area.id,
+      new Set(tables.map((table) => table.id)),
+    ]),
+  )
+
+  let order = Math.max(-1, ...areas.map((area) => asAreaNode(area)?.data.order ?? -1))
+  const redefined = new Map<string, DiagramNode>()
+  const created: DiagramNode[] = []
+
+  for (const group of groups) {
+    const members = [...new Set(group.tables.flatMap((name) => tableByName.get(name) ?? []))]
+    const existing = areas
+      .flatMap((node) => asAreaNode(node) ?? [])
+      .find((area) => !redefined.has(area.id) && area.data.name.trim() === group.name)
+    const color = group.color ?? existing?.data.color ?? AREA_NODE_DEFAULT_COLOR
+
+    const inside = tablesOfArea.get(existing?.id ?? '')
+    const unchanged =
+      inside?.size === members.length && members.every((table) => inside.has(table.id))
+    if (existing && unchanged) {
+      redefined.set(existing.id, { ...existing, data: { ...existing.data, color } })
+      continue
+    }
+
+    const { x, y, width, height } = fitAreaRect(members)
+    if (existing) {
+      const { measured: _, ...area } = existing
+      redefined.set(existing.id, {
+        ...area,
+        position: { x, y },
+        style: { ...existing.style, width, height },
+        data: { ...existing.data, color },
+      })
+    } else {
+      created.push({
+        id: randomId(),
+        type: AREA_NODE_TYPE,
+        position: { x, y },
+        style: { width, height },
+        data: {
+          name: group.name,
+          color,
+          alpha: AREA_NODE_DEFAULT_ALPHA,
+          order: ++order,
+        },
+      })
+    }
+  }
+
+  const kept = areas.flatMap((area) => {
+    const next = redefined.get(area.id)
+    if (next) return [next]
+    return mode === 'replace' && removable.has(area.id) ? [] : [area]
+  })
+  return [...kept, ...created]
+}
+
+/**
  * Schema → diagram. Tables are matched to existing nodes by name and columns
  * by name, so ids, positions, sizes and colors survive the round trip; new
- * tables are laid out below the current content.
+ * tables are laid out below the current content, each group's new tables together.
  *
- * - `replace`: the result contains exactly the given tables, enums and relations.
- * - `merge`: given tables and enums are created or fully redefined, given relations
+ * - `replace`: the result contains exactly the given tables, enums, relations and, when
+ *   given, groups.
+ * - `merge`: given tables, enums and groups are created or fully redefined, given relations
  *   are added or updated; everything else in the diagram is left as is.
  */
 export const applyDatabaseSchema = (
@@ -179,6 +284,16 @@ export const applyDatabaseSchema = (
     )
   }
 
+  const finalTableNames = new Set([
+    ...inputNames,
+    ...(mode === 'merge'
+      ? existingTables.map((node) => node.data.name).filter((name) => !ambiguousNames.has(name))
+      : []),
+  ])
+  const groups = schema.groups ?? []
+  validateGroups(groups, finalTableNames)
+  const areaIds = new Set((current.areas ?? []).map((area) => area.id))
+
   // Nodes this call does not define: unknown node kinds always, other tables in merge mode.
   const untouched = current.nodes.filter((node) => {
     const table = asTableNode(node)
@@ -188,14 +303,74 @@ export const applyDatabaseSchema = (
 
   const newTables = schema.tables.filter((table) => !existingByName.has(table.name))
   const newIds = new Map(newTables.map((table) => [table.name, randomId()]))
-  const keptForLayout = current.nodes.filter(
-    (node) => untouched.includes(node) || inputNames.has(asTableNode(node)?.data.name ?? ''),
+  const laidOut: DiagramNode[] = [
+    ...current.nodes.filter(
+      (node) => untouched.includes(node) || inputNames.has(asTableNode(node)?.data.name ?? ''),
+    ),
+    ...(current.areas ?? []),
+  ]
+  const newPosition = new Map<string, { x: number; y: number }>()
+  const heightsOf = (tables: DatabaseSchemaTable[]) =>
+    tables.map((table) => tableHeight(table.columns.length))
+  const place = (tables: DatabaseSchemaTable[], positions: { x: number; y: number }[]) =>
+    positions.forEach((position, i) => {
+      newPosition.set(tables[i].name, position)
+      // Padded, so the next block leaves room for the area around a group.
+      const height = tableHeight(tables[i].columns.length) + AREA_PADDING
+      laidOut.push({ id: tables[i].name, position, style: { height } })
+    })
+
+  /**
+   * Positions for new tables of a group next to its tables already in the diagram, below or
+   * to the right of them, where the fitted area overlaps no other table or area.
+   */
+  const besideGroup = (group: DatabaseSchemaGroup, members: DiagramNode[], heights: number[]) => {
+    if (!members.length) return undefined
+    const rects = members.map(tableRect)
+    const others = laidOut.filter((node) => !members.includes(node) && !areaIds.has(node.id))
+    const otherAreas = (current.areas ?? []).filter(
+      (node) => asAreaNode(node)?.data.name.trim() !== group.name,
+    )
+    const origins = [
+      {
+        x: Math.min(...rects.map((rect) => rect.x)),
+        y: Math.max(...rects.map((rect) => rect.y + rect.height)) + GRID_GAP_Y,
+      },
+      {
+        x:
+          Math.max(...rects.map((rect) => rect.x + rect.width)) +
+          GRID_GAP_X -
+          TABLE_ESTIMATED_WIDTH,
+        y: Math.min(...rects.map((rect) => rect.y)),
+      },
+    ]
+    return origins
+      .map((origin) => gridFrom(origin, heights))
+      .find((positions) => {
+        const added = positions.map((position, i) => ({
+          id: '',
+          position,
+          style: { height: heights[i] },
+        }))
+        const area = fitAreaRect([...members, ...added])
+        return (
+          !others.some((node) => rectsOverlap(area, tableRect(node))) &&
+          !otherAreas.some((node) => rectsOverlap(area, areaRect(node)))
+        )
+      })
+  }
+
+  const groupOf = new Map(
+    groups.flatMap((group) => group.tables.map((table) => [table, group] as const)),
   )
-  const positions = gridPositions(
-    keptForLayout,
-    newTables.map((table) => tableHeight(table.columns.length)),
-  )
-  const newPosition = new Map(newTables.map((table, i) => [table.name, positions[i]]))
+  const ungrouped = newTables.filter((table) => !groupOf.has(table.name))
+  place(ungrouped, gridPositions(laidOut, heightsOf(ungrouped)))
+  for (const group of groups) {
+    const added = newTables.filter((table) => groupOf.get(table.name) === group)
+    const members = group.tables.flatMap((name) => existingByName.get(name) ?? [])
+    const heights = heightsOf(added)
+    place(added, besideGroup(group, members, heights) ?? gridPositions(laidOut, heights))
+  }
 
   let colorIndex = existingTables.length
   const defined: TableNode[] = schema.tables.map((table) => {
@@ -342,6 +517,7 @@ export const applyDatabaseSchema = (
     nodes: finalNodes,
     edges,
     enums: applyEnums(current.enums ?? [], schema.enums ?? [], mode),
+    areas: applyGroups(current, finalNodes, tableByName, schema.groups, mode),
     summary: {
       tablesCreated: newTables.map((table) => table.name),
       tablesUpdated: schema.tables

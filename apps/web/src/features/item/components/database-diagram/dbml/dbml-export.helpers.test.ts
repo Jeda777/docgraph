@@ -154,6 +154,30 @@ Table users {
   status auth.status [not null]`)
   })
 
+  it('writes table groups after the tables, without tables that are left out', () => {
+    const dbml = toDbml(
+      schemaOf({
+        tables: [
+          { name: 'users', columns: [{ name: 'id', type: 'int' }] },
+          { name: 'drafts', columns: [] },
+        ],
+        groups: [
+          { name: 'user accounts', tables: ['users', 'drafts'], color: '#ff0000' },
+          { name: 'empty', tables: ['drafts'] },
+        ],
+      }),
+    )
+
+    expect(dbml).toContain(`Table users {
+  id int [not null]
+}
+
+TableGroup "user accounts" [color: #ff0000] {
+  users
+}`)
+    expect(dbml).not.toContain('TableGroup empty')
+  })
+
   it('writes each relation with its operator and referential actions', () => {
     const table = (name: string) => ({ name, columns: [{ name: 'id', type: 'int' }] })
     const dbml = toDbml(

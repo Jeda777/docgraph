@@ -36,16 +36,17 @@ const connectedEdges = (edges: DatabaseEdge[]) =>
 // React Flow allows CSS strings in `style`; the editor only stores numeric sizes.
 const asDiagramNodes = (nodes: DatabaseNode[]) => nodes as DiagramNode[]
 
-const toDiagramDocument = ({ nodes, edges, enums }: DatabaseDocument): DiagramDocument => ({
+const toDiagramDocument = ({ nodes, edges, enums, areas }: DatabaseDocument): DiagramDocument => ({
   nodes: asDiagramNodes(nodes),
   edges: connectedEdges(edges),
   enums,
+  areas: areas as DiagramNode[],
 })
 
 /**
- * DBML import and export of a database diagram. An import replaces the tables, enums and
- * relations but matches tables, columns and enums by name, so their ids, positions, sizes and
- * colors survive a round trip through an external DBML editor.
+ * DBML import and export of a database diagram. An import replaces the tables, enums, table
+ * groups and relations but matches them by name, so ids, positions, sizes and colors survive
+ * a round trip through an external DBML editor. Table groups are the areas around tables.
  */
 export const useDbmlIo = ({ itemName, replaceDocument, ...document }: UseDbmlIoArgs) => {
   const handleImportDbml = async (file: File) => {
@@ -61,11 +62,13 @@ export const useDbmlIo = ({ itemName, replaceDocument, ...document }: UseDbmlIoA
         return
       }
 
-      const result = applyDatabaseSchema(toDiagramDocument(document), parsed.schema, 'replace')
+      // A DBML file describes the whole diagram, so a file without groups removes them.
+      const schema = { ...parsed.schema, groups: parsed.schema.groups ?? [] }
+      const result = applyDatabaseSchema(toDiagramDocument(document), schema, 'replace')
       replaceDocument({
         nodes: result.nodes as DatabaseNode[],
         edges: result.edges as DatabaseEdge[],
-        areas: document.areas,
+        areas: (result.areas ?? []) as AreaNode[],
         enums: result.enums ?? [],
       })
     } catch (error) {

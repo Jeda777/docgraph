@@ -219,6 +219,17 @@ export const databaseSchemaEnumSchema = z.object({
 })
 export type DatabaseSchemaEnum = z.infer<typeof databaseSchemaEnumSchema>
 
+export const databaseSchemaGroupSchema = z.object({
+  name: nonEmptyStringSchema,
+  tables: z.array(nonEmptyStringSchema).min(1).describe('Names of the tables in the group'),
+  color: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional()
+    .describe('Hex color of the area drawn around the group'),
+})
+export type DatabaseSchemaGroup = z.infer<typeof databaseSchemaGroupSchema>
+
 const columnRefSchema = z.object({ table: nonEmptyStringSchema, column: nonEmptyStringSchema })
 
 export const databaseSchemaRelationSchema = z.object({
@@ -240,6 +251,10 @@ export const databaseSchemaSchema = z.object({
     .array(databaseSchemaEnumSchema)
     .optional()
     .describe('Enum types; a column uses one by naming it as its `type`'),
+  groups: z
+    .array(databaseSchemaGroupSchema)
+    .optional()
+    .describe('Table groups, drawn as areas around their tables; a table is in at most one'),
   relations: z.array(databaseSchemaRelationSchema).default([]),
 })
 export type DatabaseSchema = z.infer<typeof databaseSchemaSchema>

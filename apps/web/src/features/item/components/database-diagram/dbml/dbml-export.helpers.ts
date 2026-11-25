@@ -1,6 +1,7 @@
 import type {
   DatabaseSchema,
   DatabaseSchemaEnum,
+  DatabaseSchemaGroup,
   DatabaseSchemaRelation,
   DatabaseSchemaTable,
   RELATION_TYPES,
@@ -127,6 +128,14 @@ const exportEnum = ({ name, values }: DatabaseSchemaEnum) =>
     '}',
   ].join('\n')
 
+const exportGroup = ({ name, tables, color }: DatabaseSchemaGroup) =>
+  [
+    // A group name can't have a schema, so a dotted one is quoted.
+    `TableGroup ${IDENTIFIER.test(name) ? name : quoted(name)}${settings([color && `color: ${color}`])} {`,
+    ...tables.map((table) => `  ${tableName(table)}`),
+    '}',
+  ].join('\n')
+
 const endpoint = ({ table, column }: DatabaseSchemaRelation['from']) =>
   `${tableName(table)}.${columnName(column)}`
 
@@ -140,12 +149,18 @@ const exportRelation = (relation: DatabaseSchemaRelation) =>
 
 /**
  * Writes a schema as DBML. What DBML can't express is left out: tables without columns
- * (named in a comment instead), repeated relations between the same two columns, which
- * DBML rejects, and defaults, checks or indexes with an expression containing a backtick.
+ * (named in a comment instead, and left out of their groups), repeated relations between
+ * the same two columns, which DBML rejects, and defaults, checks or indexes with an
+ * expression containing a backtick.
  */
-export const toDbml = ({ tables, enums = [], relations }: DatabaseSchema) => {
+export const toDbml = ({ tables, enums = [], groups = [], relations }: DatabaseSchema) => {
   const exported = tables.filter((table) => table.columns.length)
   const skipped = tables.filter((table) => !table.columns.length).map((table) => table.name)
+  const exportedNames = new Set(exported.map((table) => table.name))
+  const exportedGroups = groups.flatMap((group) => {
+    const members = group.tables.filter((table) => exportedNames.has(table))
+    return members.length ? [{ ...group, tables: members }] : []
+  })
 
   const seen = new Set<string>()
   const uniqueRelations = relations.filter(({ from, to }) => {
@@ -159,6 +174,7 @@ export const toDbml = ({ tables, enums = [], relations }: DatabaseSchema) => {
     ...(skipped.length ? [`// Tables without columns, left out: ${skipped.join(', ')}`] : []),
     ...enums.map(exportEnum),
     ...exported.map(exportTable),
+    ...exportedGroups.map(exportGroup),
     ...(uniqueRelations.length ? [uniqueRelations.map(exportRelation).join('\n')] : []),
   ].join('\n\n')}\n`
 }

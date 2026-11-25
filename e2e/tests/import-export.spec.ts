@@ -97,6 +97,10 @@ Table posts {
   author_id bigint [not null, ref: > users.id]
   status post_status [not null]
 }
+
+TableGroup accounts [color: #10b981] {
+  users
+}
 `,
   )
 
@@ -109,6 +113,7 @@ Table posts {
   await expect(canvasTable(page, 'users').getByText('AI', { exact: true })).toBeVisible()
   await expect(canvasTable(page, 'users').getByText('positive_id (id > 0)')).toBeVisible()
   await expect(canvasTable(page, 'users').getByText('(lower(email))')).toBeVisible()
+  await expect(page.locator('.react-flow__node-areaNode', { hasText: 'accounts' })).toBeVisible()
   await page.getByRole('tab', { name: 'Enums' }).click()
   await expect(page.getByRole('textbox', { name: 'Enum name' })).toHaveValue('post_status')
   await expect(page.getByRole('textbox', { name: 'Enum value' })).toHaveCount(2)
@@ -139,6 +144,11 @@ Table posts {
   expect(content).toContain('status post_status [not null]')
   expect(content).toContain('author_id bigint [not null]')
   expect(content).toContain('Ref: users.id < posts.author_id')
+  expect(content).toContain(
+    `TableGroup accounts [color: #10b981] {
+  users
+}`,
+  )
 })
 
 test('a document imports Markdown and exports it back', async ({ page }, testInfo) => {

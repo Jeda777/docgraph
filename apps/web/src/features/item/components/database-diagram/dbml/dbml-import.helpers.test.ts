@@ -217,6 +217,28 @@ describe('parseDbml', () => {
     expect(schema.tables[0].columns[0].type).toBe('auth.status')
   })
 
+  it('reads table groups with the schemas of their tables and their color', () => {
+    const schema = parse(`
+      Table auth.users {
+        id int
+      }
+      Table posts {
+        id int
+      }
+      TableGroup accounts [color: #f00] {
+        auth.users
+      }
+      TableGroup content {
+        posts
+      }
+    `)
+
+    expect(schema.groups).toEqual([
+      { name: 'accounts', tables: ['auth.users'], color: '#ff0000' },
+      { name: 'content', tables: ['posts'] },
+    ])
+  })
+
   it('drops the default schema from table names', () => {
     expect(parse('Table public.users {\n  id int\n}').tables[0].name).toBe('users')
   })
@@ -357,6 +379,10 @@ describe('parseDbml', () => {
           values: [{ name: 'paid', note: "It's done" }, { name: 'not paid' }, { name: 'note' }],
         },
       ],
+      groups: [
+        { name: 'billing', tables: ['users'], color: '#10b981' },
+        { name: 'blog.posts', tables: ['posts'] },
+      ],
       relations: [
         {
           from: { table: 'users', column: 'id' },
@@ -392,5 +418,28 @@ describe('parseDbml', () => {
       'users',
       'tags',
     ])
+  })
+
+  it('turns table groups into areas around their tables and back', () => {
+    const diagram = applyDatabaseSchema(
+      { nodes: [], edges: [] },
+      parse(`
+        Table users {
+          id int
+        }
+        Table posts {
+          id int
+        }
+        TableGroup accounts [color: #10b981] {
+          users
+        }
+      `),
+      'replace',
+    )
+
+    expect(diagram.areas).toHaveLength(1)
+    expect(toDbml(toDatabaseSchema(diagram))).toContain(`TableGroup accounts [color: #10b981] {
+  users
+}`)
   })
 })

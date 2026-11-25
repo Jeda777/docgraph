@@ -1,4 +1,9 @@
-import { AREA_NODE_SIZE } from '@docgraph/common/diagram'
+import {
+  AREA_NODE_DEFAULT_ALPHA,
+  AREA_NODE_DEFAULT_COLOR,
+  AREA_NODE_MIN_SIZE,
+  AREA_NODE_SIZE,
+} from '@docgraph/common/diagram'
 import { AREA_NODE_TYPE, type AreaNodeData } from '@docgraph/common/schemas'
 import { type Node, type NodeProps, NodeResizer, type XYPosition } from '@xyflow/react'
 import { memo } from 'react'
@@ -13,8 +18,8 @@ export const createAreaNode = (state: AreaNode[], position: XYPosition): AreaNod
   style: { ...AREA_NODE_SIZE },
   data: {
     name: 'area',
-    color: '#3b82f6',
-    alpha: 0.1,
+    color: AREA_NODE_DEFAULT_COLOR,
+    alpha: AREA_NODE_DEFAULT_ALPHA,
     order: state.reduce((max, area) => Math.max(max, area.data.order ?? 0), -1) + 1,
   },
 })
@@ -24,7 +29,11 @@ export const AreaNode = memo(({ data, selected }: NodeProps<AreaNode>) => {
 
   return (
     <>
-      <NodeResizer minWidth={160} minHeight={120} isVisible={selected && !readOnly} />
+      <NodeResizer
+        minWidth={AREA_NODE_MIN_SIZE.width}
+        minHeight={AREA_NODE_MIN_SIZE.height}
+        isVisible={selected && !readOnly}
+      />
       <div
         className='relative w-full h-full rounded-md border border-foreground/10'
         style={{

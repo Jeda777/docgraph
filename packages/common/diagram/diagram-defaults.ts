@@ -24,6 +24,13 @@ export type DiagramNodeSize = { width: number; height: number }
 
 export const AREA_NODE_SIZE: DiagramNodeSize = { width: 320, height: 220 }
 
+/** Smallest size an area can be resized to in the editor. */
+export const AREA_NODE_MIN_SIZE: DiagramNodeSize = { width: 160, height: 120 }
+
+export const AREA_NODE_DEFAULT_COLOR = '#3b82f6'
+
+export const AREA_NODE_DEFAULT_ALPHA = 0.1
+
 export const FLOWCHART_NODE_SIZE: DiagramNodeSize = { width: 160, height: 80 }
 
 /** Sizes of new business process nodes; also the fallback for nodes not measured yet. */
@@ -64,6 +71,9 @@ export const businessProcessNodeDefaultSize = (
  * editor (`database-node.tsx`), which renders the real height.
  */
 export const TABLE_HEADER_HEIGHT = 60
+
+/** Estimated width of a database table, which the editor sizes to its content. */
+export const TABLE_ESTIMATED_WIDTH = 240
 
 /** Estimated height of one column row of a database table; see `TABLE_HEADER_HEIGHT`. */
 export const TABLE_ROW_HEIGHT = 32

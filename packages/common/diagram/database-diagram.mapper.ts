@@ -4,6 +4,7 @@ import {
   type DatabaseSchemaRelation,
   databaseDiagramEdgeDataSchema,
 } from '../schemas'
+import { tableGroupsOf } from './database-diagram.groups'
 import { asTableNode, type DiagramDocument } from './database-diagram.model'
 
 /**
@@ -17,7 +18,12 @@ import { asTableNode, type DiagramDocument } from './database-diagram.model'
  */
 
 /** Diagram → schema. Nodes or edges the schema cannot describe are skipped. */
-export const toDatabaseSchema = ({ nodes, edges, enums = [] }: DiagramDocument): DatabaseSchema => {
+export const toDatabaseSchema = ({
+  nodes,
+  edges,
+  enums = [],
+  areas = [],
+}: DiagramDocument): DatabaseSchema => {
   const tables = nodes.flatMap((node) => asTableNode(node) ?? [])
   const tableById = new Map(tables.map((node) => [node.id, node.data]))
 
@@ -57,8 +63,23 @@ export const toDatabaseSchema = ({ nodes, edges, enums = [] }: DiagramDocument):
     return [{ name: enumName, values: enumValues }]
   })
 
+  // Like enums, a repeated group name or a table already in a group is left out.
+  const groupNames = new Set<string>()
+  const groupedTables = new Set<string>()
+  const groups = tableGroupsOf(nodes, areas).flatMap(({ area, tables: members }) => {
+    const name = area.data.name.trim()
+    const tableNames = [...new Set(members.map(({ data }) => data.name))].filter(
+      (table) => !groupedTables.has(table),
+    )
+    if (!name || !tableNames.length || groupNames.has(name)) return []
+    groupNames.add(name)
+    for (const table of tableNames) groupedTables.add(table)
+    return [{ name, tables: tableNames, color: area.data.color }]
+  })
+
   return {
     ...(namedEnums.length ? { enums: namedEnums } : {}),
+    ...(groups.length ? { groups } : {}),
     tables: tables.map(({ data }) => {
       const columnNameById = new Map(data.values.map((value) => [value.id, value.name]))
       const indexes = (data.constraints ?? []).flatMap((constraint) => {
