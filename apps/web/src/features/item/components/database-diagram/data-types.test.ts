@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getDataTypeColor, isNumericType } from './data-types'
+import { columnTypeOptions, getDataTypeColor, isNumericType } from './data-types'
 
 describe('getDataTypeColor', () => {
   it.each([
@@ -41,4 +41,14 @@ describe('isNumericType', () => {
       expect(isNumericType(value)).toBe(false)
     },
   )
+})
+
+describe('columnTypeOptions', () => {
+  it('lists enum names before the built-in types, once each', () => {
+    const options = columnTypeOptions(['order_status', 'int'])
+
+    expect(options.slice(0, 2)).toEqual(['order_status', 'int'])
+    expect(options.filter((option) => option === 'int')).toHaveLength(1)
+    expect(options).toContain('varchar')
+  })
 })

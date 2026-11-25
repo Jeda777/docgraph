@@ -101,6 +101,8 @@ export const DatabaseSidebar = ({
       },
     ])
 
+  const enumTypes = enums.map((item) => item.name.trim()).filter(Boolean)
+
   const handleEnumAdd = () =>
     setEnums((state) => [
       ...state,
@@ -167,6 +169,7 @@ export const DatabaseSidebar = ({
           nodeId={node.id}
           data={node.data}
           setNodes={setNodes}
+          enumTypes={enumTypes}
           readOnly={readOnly}
         />
       )),

@@ -85,6 +85,11 @@ export const getDataTypeColor = (value: string): string | undefined => {
   return Object.hasOwn(dataTypes, base) ? dataTypes[base] : undefined
 }
 
+/** Column type suggestions: the diagram's enums first, then the built-in types. */
+export const columnTypeOptions = (enumTypes: readonly string[]) => [
+  ...new Set([...enumTypes, ...Object.keys(dataTypes)]),
+]
+
 /** Numeric types accept UNSIGNED (boolean excluded). */
 export const isNumericType = (value: string) => {
   const base = baseType(value)

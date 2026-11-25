@@ -11,7 +11,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { useEditingPresence } from '@/features/item/hooks/use-editing-presence'
-import { dataTypes } from '../../data-types'
+import { columnTypeOptions } from '../../data-types'
 import type { DatabaseNode as DatabaseNodeType } from '../../database-node'
 import { type OptionalColumnField, TableColumnDropdown } from './table-column-dropdown'
 
@@ -21,11 +21,21 @@ export type SidebarTableColumnProps = {
   index: number
   total: number
   setNodes: React.Dispatch<React.SetStateAction<DatabaseNodeType[]>>
+  /** Enum names offered as column types next to the built-in ones. */
+  enumTypes?: readonly string[]
   readOnly?: boolean
 }
 
 export const SidebarTableColumn = memo(
-  ({ nodeId, value, index, total, setNodes, readOnly }: SidebarTableColumnProps) => {
+  ({
+    nodeId,
+    value,
+    index,
+    total,
+    setNodes,
+    enumTypes = [],
+    readOnly,
+  }: SidebarTableColumnProps) => {
     const { id, name, defaultValue, description } = value
     const { startEditing, stopEditing } = useEditingPresence()
 
@@ -106,7 +116,7 @@ export const SidebarTableColumn = memo(
           />
 
           <Autocomplete
-            items={Object.keys(dataTypes)}
+            items={columnTypeOptions(enumTypes)}
             value={value.value}
             onValueChange={(e) => handleChangeNodeValue({ id, value: e })}
             autoHighlight
