@@ -1,5 +1,6 @@
 import type {
   DatabaseSchema,
+  DatabaseSchemaEnum,
   DatabaseSchemaRelation,
   DatabaseSchemaTable,
   RELATION_TYPES,
@@ -17,7 +18,8 @@ const IDENTIFIER = /^[A-Za-z_]\w*$/
 /** Words that start an element inside a table, so a column named after one must be quoted. */
 const TABLE_KEYWORDS = new Set(['note', 'indexes', 'checks', 'records'])
 const SCHEMA_QUALIFIED_NAME = /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/
-const PLAIN_TYPE = /^[A-Za-z_]\w*(\([^()"\\]*\))?(\[\])?$/
+/** A type name, schema-qualified for enums of another schema, with optional args or `[]`. */
+const PLAIN_TYPE = /^[A-Za-z_]\w*(\.[A-Za-z_]\w*)?(\([^()"\\]*\))?(\[\])?$/
 
 const escapeText = (value: string, quote: string) =>
   value
@@ -115,6 +117,18 @@ const exportTable = (table: DatabaseSchemaTable) => {
   return lines.join('\n')
 }
 
+const exportEnum = ({ name, values }: DatabaseSchemaEnum) =>
+  [
+    `Enum ${tableName(name)} {`,
+    ...values.map(
+      (value) =>
+        `  ${IDENTIFIER.test(value.name) ? value.name : quoted(value.name)}${settings([
+          value.note && `note: ${text(value.note)}`,
+        ])}`,
+    ),
+    '}',
+  ].join('\n')
+
 const endpoint = ({ table, column }: DatabaseSchemaRelation['from']) =>
   `${tableName(table)}.${columnName(column)}`
 
@@ -131,7 +145,7 @@ const exportRelation = (relation: DatabaseSchemaRelation) =>
  * (named in a comment instead), repeated relations between the same two columns, which
  * DBML rejects, and defaults, checks or indexes with an expression containing a backtick.
  */
-export const toDbml = ({ tables, relations }: DatabaseSchema) => {
+export const toDbml = ({ tables, enums = [], relations }: DatabaseSchema) => {
   const exported = tables.filter((table) => table.columns.length)
   const skipped = tables.filter((table) => !table.columns.length).map((table) => table.name)
 
@@ -145,6 +159,7 @@ export const toDbml = ({ tables, relations }: DatabaseSchema) => {
 
   return `${[
     ...(skipped.length ? [`// Tables without columns, left out: ${skipped.join(', ')}`] : []),
+    ...enums.map(exportEnum),
     ...exported.map(exportTable),
     ...(uniqueRelations.length ? [uniqueRelations.map(exportRelation).join('\n')] : []),
   ].join('\n\n')}\n`

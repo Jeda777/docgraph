@@ -99,5 +99,15 @@
       "position": { "x": 20, "y": 20 },
       "data": { "name": "Sales module", "color": "#10b981", "alpha": 0.15, "order": 0 }
     }
+  ],
+  "enums": [
+    {
+      "id": "enum-1",
+      "name": "order_status",
+      "values": [
+        { "id": "enum-1-a", "name": "pending" },
+        { "id": "enum-1-b", "name": "shipped", "note": "Handed to the carrier" }
+      ]
+    }
   ]
 }

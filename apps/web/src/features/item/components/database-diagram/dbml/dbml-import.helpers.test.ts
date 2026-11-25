@@ -196,6 +196,27 @@ describe('parseDbml', () => {
     ])
   })
 
+  it('reads enums with their schema and value notes', () => {
+    const schema = parse(`
+      Enum auth.status {
+        active [note: 'Can sign in']
+        "on hold"
+      }
+
+      Table auth.users {
+        status auth.status
+      }
+    `)
+
+    expect(schema.enums).toEqual([
+      {
+        name: 'auth.status',
+        values: [{ name: 'active', note: 'Can sign in' }, { name: 'on hold' }],
+      },
+    ])
+    expect(schema.tables[0].columns[0].type).toBe('auth.status')
+  })
+
   it('drops the default schema from table names', () => {
     expect(parse('Table public.users {\n  id int\n}').tables[0].name).toBe('users')
   })
@@ -303,6 +324,7 @@ describe('parseDbml', () => {
               defaultValue: '0.5',
             },
             { name: 'joined_at', type: 'date', foreignKey: false, defaultValue: 'current_date' },
+            { name: 'status', type: 'billing.state', foreignKey: false },
           ],
         },
         {
@@ -327,6 +349,12 @@ describe('parseDbml', () => {
             { expression: "slug <> ''", name: 'slug_set' },
             { expression: 'id > 0\n  AND id < 1000000' },
           ],
+        },
+      ],
+      enums: [
+        {
+          name: 'billing.state',
+          values: [{ name: 'paid', note: "It's done" }, { name: 'not paid' }],
         },
       ],
       relations: [

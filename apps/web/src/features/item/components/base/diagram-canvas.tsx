@@ -10,7 +10,10 @@ import {
 import { Redo2, Undo2 } from 'lucide-react'
 import { createContext, type ReactNode, useCallback, useContext, useMemo, useRef } from 'react'
 import { PageSpinner } from '@/components/page-spinner'
-import { useDiagramCollections } from '../../hooks/use-diagram-collections'
+import {
+  type ExtraDiagramCollection,
+  useDiagramCollections,
+} from '../../hooks/use-diagram-collections'
 import { useUndoShortcuts } from '../../hooks/use-undo-shortcuts'
 import { getUndoShortcutLabels } from '../../lib/undo-shortcuts.helpers'
 import type { AreaNode } from './area-node'
@@ -63,6 +66,8 @@ export type DiagramCanvasProps<N extends Node, E extends Edge> = {
     deletedNodeIds: ReadonlySet<string>,
     deletedEdgeIds: ReadonlySet<string>,
   ) => N[]
+  /** Collections of other maps that share the undo history with the canvas. */
+  extraCollections?: readonly ExtraDiagramCollection[]
   zIndexMode?: ZIndexMode
   isValidConnection?: (
     connection: Connection,
@@ -93,6 +98,7 @@ export const DiagramCanvas = <N extends Node, E extends Edge>({
   transformNodes,
   normalizeNodes,
   cleanDeletedReferences,
+  extraCollections,
   zIndexMode,
   isValidConnection,
   renderSidebar,
@@ -102,6 +108,7 @@ export const DiagramCanvas = <N extends Node, E extends Edge>({
     createEdgeData,
     cleanDeletedReferences,
     normalizeNodes,
+    extraCollections,
   })
   const reconnectingEdge = useRef<E | null>(null)
   const {

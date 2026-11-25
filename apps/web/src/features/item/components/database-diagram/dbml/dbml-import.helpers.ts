@@ -270,7 +270,10 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
 
         return {
           name: field.name,
-          type: field.type.type_name.replace(UNSIGNED_SUFFIX, ''),
+          type: qualifiedName(
+            field.type.schemaName,
+            field.type.type_name.replace(UNSIGNED_SUFFIX, ''),
+          ),
           primaryKey,
           nullable,
           unique: !!field.unique || indexes.unique.has(field.name),
@@ -309,7 +312,15 @@ const toSchema = (rawDatabase: Readonly<Database>): DatabaseSchema => {
     })
   })
 
-  return { tables, relations }
+  const enums = database.enums.map((item) => ({
+    name: qualifiedName(item.schemaName, item.name),
+    values: item.values.map((value) => ({
+      name: value.name,
+      ...(value.note?.value ? { note: value.note.value } : {}),
+    })),
+  }))
+
+  return { tables, ...(enums.length ? { enums } : {}), relations }
 }
 
 const lineOf = (source: string, offset: number) => source.slice(0, offset).split('\n').length
@@ -325,9 +336,8 @@ const formatErrors = (source: string, errors: readonly Readonly<CompileError>[])
 }
 
 /**
- * Reads DBML into a layout-free schema. What the diagram can't hold is dropped: enum
- * definitions (columns keep the enum name as their type), primary keys on expressions,
- * table groups and sticky notes. Column checks become checks of their table. DBML has no
+ * Reads DBML into a layout-free schema. What the diagram can't hold is dropped: primary
+ * keys on expressions, table groups and sticky notes. Column checks become checks of their table. DBML has no
  * foreign key flag or relation nullability, so both are derived: a column is a foreign
  * key when it is the referencing side of a ref, and a relation is nullable when that
  * column is.

@@ -2,6 +2,7 @@ import {
   columnHandleId,
   DATABASE_DIAGRAM_EDGE_TYPE,
   DATABASE_DIAGRAM_NODE_TYPE,
+  type DatabaseDiagramEnum,
 } from '@docgraph/common/schemas'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { ReactFlowProvider } from '@xyflow/react'
@@ -95,15 +96,19 @@ const Harness = ({ nodes: initialNodes = [USERS], edges = [], readOnly }: Harnes
   const [nodes, setNodes] = useState(initialNodes)
   const [edgeState, setEdges] = useState(edges)
   const [areas, setAreas] = useState<AreaNode[]>([])
+  const [enums, setEnums] = useState<DatabaseDiagramEnum[]>([])
 
   return (
     <DatabaseSidebar
       nodes={nodes}
       edges={edgeState}
       areas={areas}
+      enums={enums}
       setNodes={setNodes}
       setEdges={setEdges}
       setAreas={setAreas}
+      setEnums={setEnums}
+      replaceEnums={setEnums}
       replaceDocument={replaceDocument}
       itemName='Shop schema'
       readOnly={readOnly}
@@ -177,6 +182,41 @@ describe('DatabaseSidebar', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Areas' }))
 
     expect(screen.getByText(/Add an area to mark/)).toBeInTheDocument()
+  })
+
+  it('hints how to use enums when there is none', () => {
+    renderSidebar()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Enums' }))
+
+    expect(screen.getByText('Name an enum as a column type to use it.')).toBeInTheDocument()
+  })
+
+  it('adds an enum, edits its values and deletes it', () => {
+    renderSidebar()
+    fireEvent.click(screen.getByRole('tab', { name: 'Enums' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Enum name' }), {
+      target: { value: 'status' },
+    })
+    fireEvent.change(screen.getByRole('textbox', { name: 'Enum value' }), {
+      target: { value: 'active' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add value' }))
+
+    expect(screen.getByDisplayValue('status')).toBeInTheDocument()
+    expect(
+      screen
+        .getAllByRole('textbox', { name: 'Enum value' })
+        .map((input) => (input as HTMLInputElement).value),
+    ).toEqual(['active', ''])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete value (active)' }))
+    expect(screen.getAllByRole('textbox', { name: 'Enum value' })).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete enum' }))
+    expect(screen.getByText('Name an enum as a column type to use it.')).toBeInTheDocument()
   })
 
   it('switches to the tab of an element focused on the canvas', async () => {

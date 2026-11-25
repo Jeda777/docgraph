@@ -6,16 +6,23 @@ import { showErrorToast } from '@/lib/error-toast'
 import { parseDiagramFile } from '../lib/diagram-import.helpers'
 import { downloadDiagramImage, downloadFile, type ImageFormat } from '../lib/download.helpers'
 
-type UseDiagramIoArgs<N extends Node, E extends Edge, A extends Node> = {
+type UseDiagramIoArgs<
+  N extends Node,
+  E extends Edge,
+  A extends Node,
+  D extends { nodes: N[]; edges: E[]; areas: A[] },
+> = {
   itemType: ItemType
   /** Schema validating imported files; its output feeds `replaceDocument`. */
-  schema: z.ZodType<{ nodes: N[]; edges: E[]; areas: A[] }>
+  schema: z.ZodType<D>
   nodes: N[]
   edges: E[]
   areas: A[]
+  /** Diagram-specific parts of the document beyond the canvas, written to the JSON export. */
+  extra?: Omit<D, 'nodes' | 'edges' | 'areas'>
   itemName: string
   /** Replaces the whole document in one Yjs transaction, so an import is a single change. */
-  replaceDocument: (document: { nodes: N[]; edges: E[]; areas: A[] }) => void
+  replaceDocument: (document: D) => void
 }
 
 /**
@@ -23,15 +30,21 @@ type UseDiagramIoArgs<N extends Node, E extends Edge, A extends Node> = {
  * (.json/.docgraph) validated against the diagram schema, JSON export and
  * canvas image export.
  */
-export const useDiagramIo = <N extends Node, E extends Edge, A extends Node>({
+export const useDiagramIo = <
+  N extends Node,
+  E extends Edge,
+  A extends Node,
+  D extends { nodes: N[]; edges: E[]; areas: A[] } = { nodes: N[]; edges: E[]; areas: A[] },
+>({
   itemType,
   schema,
   nodes,
   edges,
   areas,
+  extra,
   itemName,
   replaceDocument,
-}: UseDiagramIoArgs<N, E, A>) => {
+}: UseDiagramIoArgs<N, E, A, D>) => {
   const handleImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -48,7 +61,7 @@ export const useDiagramIo = <N extends Node, E extends Edge, A extends Node>({
 
   const handleDownloadJson = () => {
     downloadFile(
-      JSON.stringify({ type: itemType satisfies ItemType, nodes, edges, areas }, null, 2),
+      JSON.stringify({ type: itemType satisfies ItemType, nodes, edges, areas, ...extra }, null, 2),
       `${itemName}.json`,
       'json',
     )

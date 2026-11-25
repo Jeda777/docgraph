@@ -2,6 +2,7 @@ import {
   type BaseEdge,
   type BaseNode,
   columnIdFromHandleId,
+  type DatabaseDiagramEnum,
   type DatabaseDiagramNodeData,
   databaseDiagramNodeDataSchema,
 } from '../schemas'
@@ -12,7 +13,11 @@ import {
 export type DiagramNode = BaseNode & { type?: string; data?: unknown }
 export type DiagramEdge = BaseEdge & { type?: string; data?: unknown }
 
-export type DiagramDocument = { nodes: DiagramNode[]; edges: DiagramEdge[] }
+export type DiagramDocument = {
+  nodes: DiagramNode[]
+  edges: DiagramEdge[]
+  enums?: DatabaseDiagramEnum[]
+}
 
 export type SchemaApplySummary = {
   tablesCreated: string[]

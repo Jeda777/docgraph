@@ -16,6 +16,9 @@ import type { ItemType } from './item'
 export const DATABASE_DIAGRAM_NODE_TYPE = 'databaseNode' as const
 export const DATABASE_DIAGRAM_EDGE_TYPE = 'databaseEdge' as const
 
+/** Yjs map holding the enum types of a database diagram, next to the shared diagram maps. */
+export const DATABASE_DIAGRAM_ENUMS_MAP = 'enums' as const
+
 const HANDLE_SUFFIX = { left: '-a', right: '-b' } as const
 
 /** Every column has a connection handle on both sides of its table node. */
@@ -90,6 +93,20 @@ export const databaseDiagramNodeDataSchema = z.object({
 })
 export type DatabaseDiagramNodeData = z.infer<typeof databaseDiagramNodeDataSchema>
 
+export const databaseDiagramEnumValueSchema = z.object({
+  id: nonEmptyStringSchema,
+  name: z.string(),
+  note: z.string().optional(),
+})
+export type DatabaseDiagramEnumValue = z.infer<typeof databaseDiagramEnumValueSchema>
+
+export const databaseDiagramEnumSchema = z.object({
+  id: nonEmptyStringSchema,
+  name: z.string(),
+  values: z.array(databaseDiagramEnumValueSchema),
+})
+export type DatabaseDiagramEnum = z.infer<typeof databaseDiagramEnumSchema>
+
 export const RELATION_TYPES = ['one-to-one', 'one-to-many', 'many-to-one', 'many-to-many'] as const
 
 export const REFERENTIAL_ACTIONS = [
@@ -132,6 +149,7 @@ export const databaseDiagramSchema = z.object({
   nodes: z.array(databaseDiagramNodeSchema),
   edges: z.array(databaseDiagramEdgeSchema),
   areas: z.array(areaNodeSchema),
+  enums: z.array(databaseDiagramEnumSchema).default([]),
 })
 export type DatabaseDiagram = z.infer<typeof databaseDiagramSchema>
 
@@ -195,6 +213,12 @@ export const databaseSchemaTableSchema = z.object({
 })
 export type DatabaseSchemaTable = z.infer<typeof databaseSchemaTableSchema>
 
+export const databaseSchemaEnumSchema = z.object({
+  name: nonEmptyStringSchema.describe('Type name that columns use as their `type`'),
+  values: z.array(z.object({ name: nonEmptyStringSchema, note: z.string().optional() })).min(1),
+})
+export type DatabaseSchemaEnum = z.infer<typeof databaseSchemaEnumSchema>
+
 const columnRefSchema = z.object({ table: nonEmptyStringSchema, column: nonEmptyStringSchema })
 
 export const databaseSchemaRelationSchema = z.object({
@@ -212,6 +236,10 @@ export type DatabaseSchemaRelation = z.infer<typeof databaseSchemaRelationSchema
 
 export const databaseSchemaSchema = z.object({
   tables: z.array(databaseSchemaTableSchema),
+  enums: z
+    .array(databaseSchemaEnumSchema)
+    .optional()
+    .describe('Enum types; a column uses one by naming it as its `type`'),
   relations: z.array(databaseSchemaRelationSchema).default([]),
 })
 export type DatabaseSchema = z.infer<typeof databaseSchemaSchema>

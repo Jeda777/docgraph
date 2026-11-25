@@ -17,7 +17,7 @@ import { asTableNode, type DiagramDocument } from './database-diagram.model'
  */
 
 /** Diagram → schema. Nodes or edges the schema cannot describe are skipped. */
-export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSchema => {
+export const toDatabaseSchema = ({ nodes, edges, enums = [] }: DiagramDocument): DatabaseSchema => {
   const tables = nodes.flatMap((node) => asTableNode(node) ?? [])
   const tableById = new Map(tables.map((node) => [node.id, node.data]))
 
@@ -41,7 +41,17 @@ export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSch
     ]
   })
 
+  const namedEnums = enums.flatMap(({ name, values }) => {
+    const enumValues = values.flatMap((value) =>
+      value.name.trim()
+        ? [{ name: value.name.trim(), ...(value.note ? { note: value.note } : {}) }]
+        : [],
+    )
+    return name.trim() && enumValues.length ? [{ name: name.trim(), values: enumValues }] : []
+  })
+
   return {
+    ...(namedEnums.length ? { enums: namedEnums } : {}),
     tables: tables.map(({ data }) => {
       const columnNameById = new Map(data.values.map((value) => [value.id, value.name]))
       const indexes = (data.constraints ?? []).flatMap((constraint) => {

@@ -8,7 +8,7 @@ import {
   resetTestDb,
 } from '../../test/db'
 import { getItemDocumentAccess, loadItemDocument } from '../item/document-store'
-import { updateDatabaseSchema } from './database-diagram.service'
+import { getDatabaseSchema, updateDatabaseSchema } from './database-diagram.service'
 
 // Wraps the real check so a test can make one call answer as if the item were still editable.
 vi.mock('../item/document-store', async (importOriginal) => {
@@ -54,6 +54,18 @@ describe('updateDatabaseSchema', () => {
         actorOf(user),
       ),
     ).rejects.toMatchObject({ status: 400, message: expect.stringMatching(/Duplicate tables/) })
+  })
+
+  it('stores enums next to the tables and reads them back', async () => {
+    const user = await createUser()
+    const project = await createProject({ isForAllUsers: true })
+    const item = await createItem(project.id)
+    const enums = [{ name: 'status', values: [{ name: 'draft' }, { name: 'published' }] }]
+
+    await updateDatabaseSchema(item.id, { ...SCHEMA, enums }, 'replace', actorOf(user))
+
+    const { schema } = await getDatabaseSchema(item.id, actorOf(user))
+    expect(schema.enums).toEqual(enums)
   })
 
   it('reports an error when the item is archived while the update runs', async () => {

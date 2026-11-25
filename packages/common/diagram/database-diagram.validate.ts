@@ -1,4 +1,4 @@
-import type { DatabaseSchemaTable } from '../schemas'
+import type { DatabaseSchemaEnum, DatabaseSchemaTable } from '../schemas'
 import { DatabaseSchemaError } from './database-diagram.model'
 import { findDuplicates } from './find-duplicates'
 
@@ -20,6 +20,23 @@ export const validateTables = (tables: DatabaseSchemaTable[]) => {
       if (missing.length) {
         errors.push(`Index on ${table.name} references unknown columns: ${missing.join(', ')}`)
       }
+    }
+  }
+
+  if (errors.length) throw new DatabaseSchemaError(errors.join('\n'))
+}
+
+/** Rejects duplicate enum names and duplicate values of one enum. */
+export const validateEnums = (enums: DatabaseSchemaEnum[]) => {
+  const errors: string[] = []
+
+  const duplicateEnums = findDuplicates(enums.map((item) => item.name))
+  if (duplicateEnums.length) errors.push(`Duplicate enums: ${duplicateEnums.join(', ')}`)
+
+  for (const item of enums) {
+    const duplicateValues = findDuplicates(item.values.map((value) => value.name))
+    if (duplicateValues.length) {
+      errors.push(`Duplicate values in enum ${item.name}: ${duplicateValues.join(', ')}`)
     }
   }
 
