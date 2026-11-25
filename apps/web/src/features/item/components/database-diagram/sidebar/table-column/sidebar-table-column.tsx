@@ -1,4 +1,4 @@
-import type { DatabaseDiagramNodeDataValue } from '@docgraph/common/schemas'
+import type { DatabaseDiagramEnum, DatabaseDiagramNodeDataValue } from '@docgraph/common/schemas'
 import { memo } from 'react'
 import {
   Autocomplete,
@@ -9,9 +9,16 @@ import {
   AutocompleteList,
 } from '@/components/reui/autocomplete'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { useEditingPresence } from '@/features/item/hooks/use-editing-presence'
-import { columnTypeOptions } from '../../data-types'
+import { columnTypeOptions, enumValueDefault } from '../../data-types'
 import type { DatabaseNode as DatabaseNodeType } from '../../database-node'
 import { type OptionalColumnField, TableColumnDropdown } from './table-column-dropdown'
 
@@ -21,23 +28,22 @@ export type SidebarTableColumnProps = {
   index: number
   total: number
   setNodes: React.Dispatch<React.SetStateAction<DatabaseNodeType[]>>
-  /** Enum names offered as column types next to the built-in ones. */
-  enumTypes?: readonly string[]
+  /** Enums of the diagram, offered as column types. */
+  enums?: readonly DatabaseDiagramEnum[]
   readOnly?: boolean
 }
 
 export const SidebarTableColumn = memo(
-  ({
-    nodeId,
-    value,
-    index,
-    total,
-    setNodes,
-    enumTypes = [],
-    readOnly,
-  }: SidebarTableColumnProps) => {
+  ({ nodeId, value, index, total, setNodes, enums = [], readOnly }: SidebarTableColumnProps) => {
     const { id, name, defaultValue, description } = value
     const { startEditing, stopEditing } = useEditingPresence()
+    const enumTypes = enums.map((item) => item.name.trim()).filter(Boolean)
+    const enumValues = enums
+      .find((item) => item.name.trim() === value.value.trim())
+      ?.values.filter((enumValue) => enumValue.name.trim())
+    const defaultLabel = enumValues?.find(
+      (enumValue) => enumValueDefault(enumValue.name) === defaultValue,
+    )?.name
 
     const handleChangeNodeValue = (newValue: Partial<DatabaseDiagramNodeDataValue>) =>
       setNodes((state) =>
@@ -151,7 +157,25 @@ export const SidebarTableColumn = memo(
           />
         </div>
 
-        {defaultValue !== undefined && (
+        {defaultValue !== undefined && enumValues && (
+          <Select
+            value={defaultValue}
+            onValueChange={(next) => handleChangeNodeValue({ id, defaultValue: next ?? '' })}
+          >
+            <SelectTrigger aria-label='Column default' className='w-full' disabled={readOnly}>
+              <SelectValue>{defaultLabel ?? (defaultValue || 'Choose a value')}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {enumValues.map((enumValue) => (
+                <SelectItem key={enumValue.id} value={enumValueDefault(enumValue.name)}>
+                  {enumValue.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {defaultValue !== undefined && !enumValues && (
           <Input
             type='text'
             aria-label='Column default'

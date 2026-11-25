@@ -1,3 +1,4 @@
+import type { DatabaseDiagramEnum } from '@docgraph/common/schemas'
 import { Copy, KeyRound, Plus, Trash } from 'lucide-react'
 import { memo } from 'react'
 import { Button } from '@/components/ui/button'
@@ -22,13 +23,13 @@ export type SidebarTableProps = {
   nodeId: string
   data: DatabaseNodeType['data']
   setNodes: React.Dispatch<React.SetStateAction<DatabaseNodeType[]>>
-  /** Enum names offered as column types next to the built-in ones. */
-  enumTypes?: readonly string[]
+  /** Enums of the diagram, offered as column types. */
+  enums?: readonly DatabaseDiagramEnum[]
   readOnly?: boolean
 }
 
 export const SidebarTable = memo(
-  ({ nodeId, data, setNodes, enumTypes, readOnly }: SidebarTableProps) => {
+  ({ nodeId, data, setNodes, enums, readOnly }: SidebarTableProps) => {
     const { startEditing, stopEditing } = useEditingPresence()
 
     const updateData = (fn: (data: DatabaseNodeType['data']) => DatabaseNodeType['data']) =>
@@ -293,7 +294,7 @@ export const SidebarTable = memo(
                 nodeId={nodeId}
                 index={i}
                 total={data.values.length}
-                enumTypes={enumTypes}
+                enums={enums}
                 readOnly={readOnly}
               />
             ))}
