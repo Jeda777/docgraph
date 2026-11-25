@@ -109,6 +109,29 @@ describe('toDbml', () => {
 `)
   })
 
+  it('writes expression indexes after their columns, leaving out ones with a backtick', () => {
+    const dbml = toDbml(
+      schemaOf({
+        tables: [
+          {
+            name: 'users',
+            columns: [{ name: 'email', type: 'text' }],
+            indexes: [
+              { type: 'unique', expressions: ['lower(email)'] },
+              { type: 'index', columns: ['email'], expressions: ['length(email)'] },
+              { type: 'index', columns: ['email'], expressions: ['`email`'] },
+            ],
+          },
+        ],
+      }),
+    )
+
+    expect(dbml).toContain(`  indexes {
+    \`lower(email)\` [unique]
+    (email, \`length(email)\`)
+  }`)
+  })
+
   it('writes each relation with its operator and referential actions', () => {
     const table = (name: string) => ({ name, columns: [{ name: 'id', type: 'int' }] })
     const dbml = toDbml(

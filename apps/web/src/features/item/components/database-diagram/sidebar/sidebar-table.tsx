@@ -7,6 +7,7 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
@@ -83,6 +84,25 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
           : c,
       ),
     }))
+
+  const updateExpressions = (constraintId: string, fn: (expressions: string[]) => string[]) =>
+    updateData((data) => ({
+      ...data,
+      constraints: data.constraints?.map((c) =>
+        c.id === constraintId ? { ...c, expressions: fn(c.expressions ?? []) } : c,
+      ),
+    }))
+
+  const handleExpressionAdd = (constraintId: string) =>
+    updateExpressions(constraintId, (expressions) => [...expressions, ''])
+
+  const handleExpressionChange = (constraintId: string, index: number, expression: string) =>
+    updateExpressions(constraintId, (expressions) =>
+      expressions.map((previous, i) => (i === index ? expression : previous)),
+    )
+
+  const handleExpressionDelete = (constraintId: string, index: number) =>
+    updateExpressions(constraintId, (expressions) => expressions.filter((_, i) => i !== index))
 
   const handleCheckAdd = () =>
     updateData((data) => ({
@@ -162,45 +182,76 @@ export const SidebarTable = memo(({ nodeId, data, setNodes, readOnly }: SidebarT
               .filter((v) => c.columns.includes(v.id))
               .map((v) => v.name)
               .join(', ')
+            const parts = [columnNames, ...(c.expressions ?? [])].filter(Boolean).join(', ')
             return (
-              <div key={c.id} className='flex items-center gap-1'>
-                <span className='text-xs font-semibold uppercase w-12 shrink-0'>{c.type}</span>
-                <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        variant='outline'
-                        size='sm'
-                        className='flex-1 justify-start font-normal truncate'
-                        disabled={readOnly}
-                      />
-                    }
+              <div key={c.id} className='flex flex-col gap-1'>
+                <div className='flex items-center gap-1'>
+                  <span className='text-xs font-semibold uppercase w-12 shrink-0'>{c.type}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger
+                      render={
+                        <Button
+                          variant='outline'
+                          size='sm'
+                          className='flex-1 justify-start font-normal truncate'
+                          disabled={readOnly}
+                        />
+                      }
+                    >
+                      {columnNames || 'columns'}
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      {data.values.map((v) => (
+                        <DropdownMenuCheckboxItem
+                          key={v.id}
+                          checked={c.columns.includes(v.id)}
+                          closeOnClick={false}
+                          onCheckedChange={() => handleConstraintToggleColumn(c.id, v.id)}
+                        >
+                          {v.name}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleExpressionAdd(c.id)}>
+                        Add expression
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button
+                    variant='ghost'
+                    size='icon-sm'
+                    // Names the parts so screen readers can tell same-type constraints apart.
+                    aria-label={`Delete ${c.type} constraint${parts ? ` (${parts})` : ''}`}
+                    onClick={() => handleConstraintDelete(c.id)}
+                    disabled={readOnly}
                   >
-                    {columnNames || 'columns'}
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent>
-                    {data.values.map((v) => (
-                      <DropdownMenuCheckboxItem
-                        key={v.id}
-                        checked={c.columns.includes(v.id)}
-                        closeOnClick={false}
-                        onCheckedChange={() => handleConstraintToggleColumn(c.id, v.id)}
-                      >
-                        {v.name}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                <Button
-                  variant='ghost'
-                  size='icon-sm'
-                  // Names the columns so screen readers can tell same-type constraints apart.
-                  aria-label={`Delete ${c.type} constraint${columnNames ? ` (${columnNames})` : ''}`}
-                  onClick={() => handleConstraintDelete(c.id)}
-                  disabled={readOnly}
-                >
-                  <Trash />
-                </Button>
+                    <Trash />
+                  </Button>
+                </div>
+                {c.expressions?.map((expression, i) => (
+                  // biome-ignore lint/suspicious/noArrayIndexKey: expressions have no ids and may repeat
+                  <div key={i} className='flex items-center gap-1 pl-13'>
+                    <Input
+                      type='text'
+                      aria-label='Index expression'
+                      placeholder='e.g. lower(email)'
+                      value={expression}
+                      onChange={(e) => handleExpressionChange(c.id, i, e.target.value)}
+                      onFocus={() => startEditing(nodeId, `constraint:${c.id}`)}
+                      onBlur={stopEditing}
+                      disabled={readOnly}
+                    />
+                    <Button
+                      variant='ghost'
+                      size='icon-sm'
+                      aria-label={`Delete expression${expression ? ` (${expression})` : ''}`}
+                      onClick={() => handleExpressionDelete(c.id, i)}
+                      disabled={readOnly}
+                    >
+                      <Trash />
+                    </Button>
+                  </div>
+                ))}
               </div>
             )
           })}

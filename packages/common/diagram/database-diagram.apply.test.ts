@@ -126,6 +126,54 @@ describe('applyDatabaseSchema', () => {
     expect(toDatabaseSchema({ nodes: [blank], edges: [] }).tables[0]).not.toHaveProperty('checks')
   })
 
+  it('keeps expression indexes and their ids, leaving out empty ones', () => {
+    const schema = schemaOf({
+      tables: [
+        {
+          name: 'users',
+          columns: [
+            { name: 'id', type: 'bigint' },
+            { name: 'email', type: 'text' },
+          ],
+          indexes: [
+            { type: 'unique', expressions: ['lower(email)'] },
+            { type: 'index', columns: ['id'], expressions: ['lower(email)'] },
+          ],
+        },
+      ],
+    })
+
+    const first = applyDatabaseSchema(EMPTY, schema, 'replace')
+    const second = applyDatabaseSchema(first, schema, 'replace')
+    const constraintsOf = (document: DiagramDocument) =>
+      (document.nodes[0].data as { constraints: { id: string }[] }).constraints
+
+    expect(toDatabaseSchema(second).tables[0].indexes).toEqual([
+      { type: 'unique', columns: [], expressions: ['lower(email)'] },
+      { type: 'index', columns: ['id'], expressions: ['lower(email)'] },
+    ])
+    expect(constraintsOf(second).map((constraint) => constraint.id)).toEqual(
+      constraintsOf(first).map((constraint) => constraint.id),
+    )
+
+    const empty = {
+      ...first.nodes[0],
+      data: {
+        ...(first.nodes[0].data as object),
+        constraints: [{ id: 'x', type: 'index', columns: [], expressions: [' '] }],
+      },
+    }
+    expect(toDatabaseSchema({ nodes: [empty], edges: [] }).tables[0]).not.toHaveProperty('indexes')
+  })
+
+  it('rejects an index without columns or expressions', () => {
+    expect(() =>
+      schemaOf({
+        tables: [{ name: 'users', columns: [], indexes: [{ type: 'index', columns: [] }] }],
+      }),
+    ).toThrow('An index needs at least one column or expression')
+  })
+
   it('keeps ids, positions and colors of tables matched by name', () => {
     const first = applyDatabaseSchema(EMPTY, BLOG, 'replace')
     const moved = {

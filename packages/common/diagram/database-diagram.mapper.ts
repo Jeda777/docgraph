@@ -44,10 +44,14 @@ export const toDatabaseSchema = ({ nodes, edges }: DiagramDocument): DatabaseSch
   return {
     tables: tables.map(({ data }) => {
       const columnNameById = new Map(data.values.map((value) => [value.id, value.name]))
-      const indexes = (data.constraints ?? []).map((constraint) => ({
-        type: constraint.type,
-        columns: constraint.columns.flatMap((id) => columnNameById.get(id) ?? []),
-      }))
+      const indexes = (data.constraints ?? []).flatMap((constraint) => {
+        const columns = constraint.columns.flatMap((id) => columnNameById.get(id) ?? [])
+        const expressions = (constraint.expressions ?? [])
+          .map((expression) => expression.trim())
+          .filter(Boolean)
+        if (!columns.length && !expressions.length) return []
+        return [{ type: constraint.type, columns, ...(expressions.length ? { expressions } : {}) }]
+      })
       const checks = (data.checks ?? []).flatMap(({ expression, name }) =>
         expression.trim()
           ? [{ expression: expression.trim(), ...(name?.trim() ? { name: name.trim() } : {}) }]

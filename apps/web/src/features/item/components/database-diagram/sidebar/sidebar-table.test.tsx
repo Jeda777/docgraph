@@ -260,6 +260,27 @@ describe('SidebarTable', () => {
       expect(users()?.data.constraints?.[0].columns).toEqual(['users-id'])
     })
 
+    it('adds, edits and deletes an expression of a constraint', () => {
+      renderTable()
+      addConstraint('Unique')
+
+      fireEvent.click(screen.getByRole('button', { name: 'columns' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Add expression' }))
+      fireEvent.change(screen.getByRole('textbox', { name: 'Index expression' }), {
+        target: { value: 'lower(email)' },
+      })
+
+      expect(users()?.data.constraints?.[0].expressions).toEqual(['lower(email)'])
+      expect(
+        screen.getByRole('button', { name: 'Delete unique constraint (lower(email))' }),
+      ).toBeInTheDocument()
+
+      fireEvent.click(screen.getByRole('button', { name: 'Delete expression (lower(email))' }))
+
+      expect(users()?.data.constraints?.[0].expressions).toEqual([])
+      expect(screen.queryByRole('textbox', { name: 'Index expression' })).toBeNull()
+    })
+
     it('deletes a constraint', () => {
       renderTable()
       addConstraint('Unique')
