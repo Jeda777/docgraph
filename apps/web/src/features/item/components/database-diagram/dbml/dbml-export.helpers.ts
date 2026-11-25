@@ -15,7 +15,7 @@ const RELATION_OPERATORS: Record<(typeof RELATION_TYPES)[number], string> = {
 }
 
 const IDENTIFIER = /^[A-Za-z_]\w*$/
-/** Words that start an element inside a table, so a column named after one must be quoted. */
+/** Words that start an element inside a table, so a column or enum value named after one is quoted. */
 const TABLE_KEYWORDS = new Set(['note', 'indexes', 'checks', 'records'])
 const SCHEMA_QUALIFIED_NAME = /^[A-Za-z_]\w*\.[A-Za-z_]\w*$/
 /** A type name, schema-qualified for enums of another schema, with optional args or `[]`. */
@@ -122,9 +122,7 @@ const exportEnum = ({ name, values }: DatabaseSchemaEnum) =>
     `Enum ${tableName(name)} {`,
     ...values.map(
       (value) =>
-        `  ${IDENTIFIER.test(value.name) ? value.name : quoted(value.name)}${settings([
-          value.note && `note: ${text(value.note)}`,
-        ])}`,
+        `  ${columnName(value.name)}${settings([value.note && `note: ${text(value.note)}`])}`,
     ),
     '}',
   ].join('\n')

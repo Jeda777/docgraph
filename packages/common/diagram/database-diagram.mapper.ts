@@ -41,13 +41,20 @@ export const toDatabaseSchema = ({ nodes, edges, enums = [] }: DiagramDocument):
     ]
   })
 
+  // Repeated names are left to their first occurrence, so the result can be written back.
+  const enumNames = new Set<string>()
   const namedEnums = enums.flatMap(({ name, values }) => {
-    const enumValues = values.flatMap((value) =>
-      value.name.trim()
-        ? [{ name: value.name.trim(), ...(value.note ? { note: value.note } : {}) }]
-        : [],
-    )
-    return name.trim() && enumValues.length ? [{ name: name.trim(), values: enumValues }] : []
+    const valueNames = new Set<string>()
+    const enumValues = values.flatMap((value) => {
+      const valueName = value.name.trim()
+      if (!valueName || valueNames.has(valueName)) return []
+      valueNames.add(valueName)
+      return [{ name: valueName, ...(value.note ? { note: value.note } : {}) }]
+    })
+    const enumName = name.trim()
+    if (!enumName || !enumValues.length || enumNames.has(enumName)) return []
+    enumNames.add(enumName)
+    return [{ name: enumName, values: enumValues }]
   })
 
   return {

@@ -117,10 +117,15 @@ const applyEnums = (
   input: DatabaseSchemaEnum[],
   mode: SchemaApplyMode,
 ): DatabaseDiagramEnum[] => {
-  const existingByName = new Map(current.map((item) => [item.name, item]))
+  // Names are compared trimmed, as `toDatabaseSchema` reports them; the first of repeated
+  // names wins.
+  const existingByName = new Map<string, DatabaseDiagramEnum>()
+  for (const item of current) {
+    if (!existingByName.has(item.name.trim())) existingByName.set(item.name.trim(), item)
+  }
   const defined = input.map((item): DatabaseDiagramEnum => {
     const previous = existingByName.get(item.name)
-    const valueIds = new Map(previous?.values.map((value) => [value.name, value.id]))
+    const valueIds = new Map(previous?.values.map((value) => [value.name.trim(), value.id]))
     return {
       id: previous?.id ?? randomId(),
       name: item.name,
@@ -134,7 +139,12 @@ const applyEnums = (
   if (mode === 'replace') return defined
 
   const definedByName = new Map(defined.map((item) => [item.name, item]))
-  const kept = current.map((item) => definedByName.get(item.name) ?? item)
+  const kept = current.flatMap((item) => {
+    const redefined = definedByName.get(item.name.trim())
+    if (!redefined) return [item]
+    // A redefined enum takes the place of its first occurrence and replaces the others.
+    return existingByName.get(item.name.trim()) === item ? [redefined] : []
+  })
   return [...kept, ...defined.filter((item) => !existingByName.has(item.name))]
 }
 

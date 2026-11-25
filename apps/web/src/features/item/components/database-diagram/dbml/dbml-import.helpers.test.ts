@@ -354,7 +354,7 @@ describe('parseDbml', () => {
       enums: [
         {
           name: 'billing.state',
-          values: [{ name: 'paid', note: "It's done" }, { name: 'not paid' }],
+          values: [{ name: 'paid', note: "It's done" }, { name: 'not paid' }, { name: 'note' }],
         },
       ],
       relations: [

@@ -233,6 +233,50 @@ describe('applyDatabaseSchema', () => {
       expect(schema.enums).toEqual([{ name: 'kind', values: [{ name: 'big' }] }])
     })
 
+    it('reports repeated enum and value names once, so the result can be applied back', () => {
+      const schema = toDatabaseSchema({
+        nodes: [],
+        edges: [],
+        enums: [
+          {
+            id: 'a',
+            name: 'status',
+            values: [
+              { id: 'a1', name: 'on' },
+              { id: 'a2', name: ' on ' },
+            ],
+          },
+          { id: 'b', name: ' status', values: [{ id: 'b1', name: 'off' }] },
+        ],
+      })
+
+      expect(schema.enums).toEqual([{ name: 'status', values: [{ name: 'on' }] }])
+      expect(() => applyDatabaseSchema(EMPTY, schema, 'replace')).not.toThrow()
+    })
+
+    it('merge matches enums by their trimmed name and replaces repeated ones', () => {
+      const current = {
+        ...EMPTY,
+        enums: [
+          { id: 'a', name: ' status ', values: [{ id: 'a1', name: 'draft' }] },
+          { id: 'b', name: 'status', values: [{ id: 'b1', name: 'old' }] },
+          { id: 'c', name: 'role', values: [{ id: 'c1', name: 'admin' }] },
+        ],
+      }
+
+      const merged = applyDatabaseSchema(
+        current,
+        schemaOf({ tables: [], enums: [STATUS] }),
+        'merge',
+      )
+
+      expect(merged.enums?.map((item) => [item.id, item.name])).toEqual([
+        ['a', 'status'],
+        ['c', 'role'],
+      ])
+      expect(merged.enums?.[0].values[0].id).toBe('a1')
+    })
+
     it('rejects duplicate enums and values', () => {
       const schema = schemaOf({
         tables: [],
