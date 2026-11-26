@@ -1,8 +1,8 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: ['config:recommended', 'helpers:pinGitHubActionDigests'],
-  // All of Monday: the hosted app runs every few hours, so a short window is easy to miss.
-  schedule: ['* * * * 1'],
+  // All of Monday and Friday: the hosted app runs every few hours, so a short window is easy to miss.
+  schedule: ['* * * * 1,5'],
   // The default also skips `test` folders, where the Testcontainers setup lives.
   ignorePaths: ['**/node_modules/**'],
   // Longer than pnpm's `minimumReleaseAge` (1 day), so pnpm can install every proposed version.
