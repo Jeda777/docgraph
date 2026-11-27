@@ -31,9 +31,9 @@ catalog:
   zod: ^4.6.7
   tsx: ^4.23.15
   "@types/node": ^26.6.6
-  better-auth: ^1.7.27
-  "@better-auth/api-key": ^1.7.27
-  "@better-auth/drizzle-adapter": ^1.7.27
+  better-auth: ^1.7.28
+  "@better-auth/api-key": ^1.7.28
+  "@better-auth/drizzle-adapter": ^1.7.28
   "@modelcontextprotocol/sdk": ^1.32.2
   # documents
   "@hocuspocus/extension-database": 4.9.0
