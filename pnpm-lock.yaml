@@ -456,8 +456,8 @@ importers:
         specifier: ^4.3.5
         version: 4.3.5(vite@8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       '@tanstack/react-query':
-        specifier: ^5.108.2
-        version: 5.108.2(@types/react@19.3.0)(react@19.3.1)
+        specifier: ^5.108.4
+        version: 5.108.4(@types/react@19.3.0)(react@19.3.1)
       '@tiptap/extension-collaboration':
         specifier: 'catalog:'
         version: 3.35.0(@tiptap/core@3.35.0(@tiptap/pm@3.35.0))(@tiptap/pm@3.35.0)(@tiptap/y-tiptap@3.3.1(prosemirror-model@1.25.13)(prosemirror-state@1.4.4)(prosemirror-view@1.43.0)(y-protocols@1.0.7(yjs@13.6.33))(yjs@13.6.33))(yjs@13.6.33)
@@ -1958,11 +1958,11 @@ packages:
     peerDependencies:
       vite: ^5.2.0 || ^6 || ^7 || ^8
 
-  '@tanstack/query-core@5.108.2':
-    resolution: {integrity: sha512-0l+0xDKqn71hfJBKaAvFP/X7WYM0TbscEk6nK1pHaWQUWUEA+WJD0VlT8wF+HIJANMV9B/DouPWwDnX3w/l9BA==}
+  '@tanstack/query-core@5.108.4':
+    resolution: {integrity: sha512-2Ks5dlLWz4eXJrthOyG0qW3SLt3xx0RrQmAmN0rnmogiaaOYuWiAe6HAm9KE2b2v8nig+vraNz8fsfZ6fF6zFg==}
 
-  '@tanstack/react-query@5.108.2':
-    resolution: {integrity: sha512-wV6hEjVGTfh9rvu3uREYW0hgBfS9klDejGelhPY575jD5jg6qbAb1nzT7hR1Q+wemR66ZjtE5p9pAGUwqK8zbg==}
+  '@tanstack/react-query@5.108.4':
+    resolution: {integrity: sha512-GlTa94kfEKTVsbzXe58rFA3GZ0ZE7N1aFtbZAfOS3XxMv8YNn4C+8rsz40LorHLazdm5PsqCroWaYAR+ZkMXMQ==}
     peerDependencies:
       '@types/react': ^18 || ^19
       react: ^18 || ^19
@@ -6424,11 +6424,11 @@ snapshots:
       tailwindcss: 4.3.5
       vite: 8.3.8(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
 
-  '@tanstack/query-core@5.108.2': {}
+  '@tanstack/query-core@5.108.4': {}
 
-  '@tanstack/react-query@5.108.2(@types/react@19.3.0)(react@19.3.1)':
+  '@tanstack/react-query@5.108.4(@types/react@19.3.0)(react@19.3.1)':
     dependencies:
-      '@tanstack/query-core': 5.108.2
+      '@tanstack/query-core': 5.108.4
       react: 19.3.1
     optionalDependencies:
       '@types/react': 19.3.0
